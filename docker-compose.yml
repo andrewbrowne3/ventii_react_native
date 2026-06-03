@@ -1,0 +1,27 @@
+# Ventii services. The mobile app (repo root) is the client; backend services
+# live in their own folders. Add the `agent` service here when it lands.
+services:
+  backend:
+    build: ./backend
+    container_name: ventii-backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app          # live code reload in dev
+      - backend-data:/app/data  # persists the SQLite db across rebuilds
+    environment:
+      - DEBUG=1
+      - DJANGO_SECRET_KEY=dev-insecure-change-me
+      - DJANGO_ALLOWED_HOSTS=*
+      - CORS_ALLOW_ALL_ORIGINS=1
+    restart: unless-stopped
+
+  # agent:
+  #   build: ./agent
+  #   container_name: ventii-agent
+  #   ports:
+  #     - "4012:4012"
+  #   restart: unless-stopped
+
+volumes:
+  backend-data:

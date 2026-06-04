@@ -68,6 +68,12 @@ EVENTS = [
      ['Live Music', 'Local', 'Standing'], ['Indie', 'Alternative'], 18, 'All Ages', 220, 600,
      [('GA', 'Standing room', 18, 2.5, 250, [])],
      [('$4 local drafts', 'All night')]),
+
+    ('ATL Sunday Day Party', '@the-mansion-atl', ['@dj-kemi', '@dj-stax'], 9, '2:00 PM', '9:00 PM',
+     ['Day Party', 'Brunch', 'Outdoor'], ['Afrobeats', 'Hip-Hop', 'Amapiano'], 25, '21+', 760, 1980,
+     [('GA', 'Day party entry', 25, 3.5, 400, ['Patio access']),
+      ('Brunch Table', 'Reserved table for 4', 200, 20, 12, ['Bottomless mimosas', 'Reserved seating'])],
+     [('Bottomless mimosas til 4PM', 'With any brunch table')]),
 ]
 
 

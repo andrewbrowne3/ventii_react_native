@@ -118,5 +118,20 @@ SIMPLE_JWT = {
 }
 
 # CORS — wide open in dev so the phone (on the LAN) can reach the API.
-# Tighten CORS_ALLOWED_ORIGINS for production.
+# In production set CORS_ALLOW_ALL_ORIGINS=0 and list the domain instead.
 CORS_ALLOW_ALL_ORIGINS = env_bool('CORS_ALLOW_ALL_ORIGINS', True)
+if not CORS_ALLOW_ALL_ORIGINS:
+    CORS_ALLOWED_ORIGINS = [
+        o for o in os.environ.get('CORS_ALLOWED_ORIGINS', '').split(',') if o
+    ]
+
+# CSRF trusted origins (needed for the Django admin behind HTTPS), e.g.
+# "https://ventii.andrewbrowne.org".
+CSRF_TRUSTED_ORIGINS = [
+    o for o in os.environ.get('DJANGO_CSRF_TRUSTED_ORIGINS', '').split(',') if o
+]
+
+# Running behind the nginx TLS terminator: trust its forwarded proto/host so
+# Django knows the original request was HTTPS.
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+USE_X_FORWARDED_HOST = True

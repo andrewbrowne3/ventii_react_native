@@ -1,0 +1,49 @@
+# Production stack for ventii.andrewbrowne.org
+#   - backend: Django served by gunicorn (not exposed directly)
+#   - nginx:   reverse proxy + TLS termination on :80/:443
+#   - certbot: obtains & auto-renews the Let's Encrypt certificate
+#
+# First-time setup: see DEPLOY_AGENT.md (run ./deploy/init-letsencrypt.sh once
+# to issue the certificate, then `docker compose -f docker-compose.prod.yml up -d`).
+services:
+  backend:
+    build: ./backend
+    container_name: ventii-backend
+    entrypoint: ["./entrypoint.prod.sh"]
+    command: ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "3", "--timeout", "60"]
+    expose:
+      - "8000"
+    env_file:
+      - ./backend/.env
+    volumes:
+      - backend-data:/app/data       # SQLite db persists across rebuilds
+      - static:/app/staticfiles       # shared with nginx for /static/
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: ventii-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./deploy/certbot/conf:/etc/letsencrypt
+      - ./deploy/certbot/www:/var/www/certbot
+      - static:/var/www/static:ro
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  certbot:
+    image: certbot/certbot
+    container_name: ventii-certbot
+    volumes:
+      - ./deploy/certbot/conf:/etc/letsencrypt
+      - ./deploy/certbot/www:/var/www/certbot
+    # Check for renewal twice a day; nginx picks up renewed certs on reload.
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+
+volumes:
+  backend-data:
+  static:

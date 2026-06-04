@@ -1,20 +1,25 @@
-import React from 'react';
+import React, {useEffect} from 'react';
 import {View, Text, StatusBar, StyleSheet, TouchableOpacity} from 'react-native';
 import {useDispatch, useSelector} from 'react-redux';
 import {useNavigation} from '@react-navigation/native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useTheme} from '../hooks/useTheme';
 import {SwipeDeck} from '../components/SwipeDeck';
-import {RootState} from '../store/store';
-import {swipe, resetDeck} from '../store/slices/feedSlice';
+import {RootState, AppDispatch} from '../store/store';
+import {swipe, resetDeck, fetchEvents} from '../store/slices/feedSlice';
 import {Event} from '../types';
 
 export const HomeFeedScreen: React.FC = () => {
   const t = useTheme();
-  const dispatch = useDispatch();
+  const dispatch = useDispatch<AppDispatch>();
   const nav = useNavigation<any>();
   const events = useSelector((s: RootState) => s.feed.events);
   const topIndex = useSelector((s: RootState) => s.feed.topIndex);
+
+  // Pull the live event deck from the backend when the feed opens.
+  useEffect(() => {
+    dispatch(fetchEvents());
+  }, [dispatch]);
 
   const handleSwipe = (dir: 'left' | 'right' | 'up') => dispatch(swipe(dir));
   const handleTap = (event: Event) => nav.navigate('EventDetail', {event});

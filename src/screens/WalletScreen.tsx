@@ -1,17 +1,23 @@
-import React from 'react';
+import React, {useEffect} from 'react';
 import {View, Text, FlatList, Pressable, Image, StyleSheet} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
-import {useSelector} from 'react-redux';
+import {useDispatch, useSelector} from 'react-redux';
 import {useNavigation} from '@react-navigation/native';
-import {RootState} from '../store/store';
+import {RootState, AppDispatch} from '../store/store';
 import {useTheme} from '../hooks/useTheme';
 import {Pill} from '../components/Pill';
 import {OwnedTicket} from '../types';
+import {fetchTickets} from '../store/slices/walletSlice';
 
 export const WalletScreen: React.FC = () => {
   const t = useTheme();
   const nav = useNavigation<any>();
+  const dispatch = useDispatch<AppDispatch>();
   const tickets = useSelector((s: RootState) => s.wallet.tickets);
+
+  useEffect(() => {
+    dispatch(fetchTickets());
+  }, [dispatch]);
 
   return (
     <SafeAreaView style={[styles.container, {backgroundColor: t.bg.primary}]} edges={['top']}>

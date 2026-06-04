@@ -1,6 +1,15 @@
-import {createSlice, PayloadAction} from '@reduxjs/toolkit';
+import {createSlice, createAsyncThunk, PayloadAction} from '@reduxjs/toolkit';
 import {Event} from '../../types';
 import {EVENTS} from '../../data/mockEvents';
+import {API_CONFIG} from '../../constants/config';
+import {api, unwrapList} from '../../services/api';
+
+// Pull the live event deck from the backend. Falls back to mock data (the
+// initial state) if the request fails, so the app still shows something.
+export const fetchEvents = createAsyncThunk('feed/fetchEvents', async () => {
+  const res = await api.get(API_CONFIG.ENDPOINTS.EVENTS);
+  return unwrapList<Event>(res.data);
+});
 
 type SwipeDirection = 'left' | 'right' | 'up';
 
@@ -55,6 +64,14 @@ const feedSlice = createSlice({
         state.saved.push(id);
       }
     },
+  },
+  extraReducers: (b) => {
+    b.addCase(fetchEvents.fulfilled, (state, action) => {
+      if (action.payload.length > 0) {
+        state.events = action.payload;
+        state.topIndex = 0;
+      }
+    });
   },
 });
 

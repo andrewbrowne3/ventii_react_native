@@ -2,19 +2,20 @@
  * VENTII — root component.
  *
  * Provider + PersistGate + SafeAreaProvider + GestureHandlerRoot + Navigator.
- * No backend wiring yet; auth login is mocked, all data is seeded from
- * /src/data/mock*.ts. See README for setup.
+ * Wired to the live backend (https://ventii.andrewbrowne.org): auth is real
+ * JWT, the event deck and wallet load from the API. See src/services/api.ts.
  */
 
-import React from 'react';
+import React, {useEffect} from 'react';
 import {StatusBar, View, Text} from 'react-native';
 import {GestureHandlerRootView} from 'react-native-gesture-handler';
 import {SafeAreaProvider} from 'react-native-safe-area-context';
-import {Provider, useSelector} from 'react-redux';
+import {Provider, useSelector, useDispatch} from 'react-redux';
 import {PersistGate} from 'redux-persist/integration/react';
 
-import {store, persistor, RootState} from './src/store/store';
+import {store, persistor, RootState, AppDispatch} from './src/store/store';
 import {AppNavigator} from './src/navigation/AppNavigator';
+import {restoreSession} from './src/store/slices/authSlice';
 import {getTheme} from './src/theme/themes';
 
 const ThemedStatusBar: React.FC = () => {
@@ -25,6 +26,16 @@ const ThemedStatusBar: React.FC = () => {
       backgroundColor={getTheme(mode).bg.primary}
     />
   );
+};
+
+// Re-validate any stored JWT on launch: loads the profile if the token is
+// still good, or clears the persisted session if it has expired.
+const SessionBootstrap: React.FC = () => {
+  const dispatch = useDispatch<AppDispatch>();
+  useEffect(() => {
+    dispatch(restoreSession());
+  }, [dispatch]);
+  return null;
 };
 
 const PersistLoader: React.FC = () => (
@@ -42,6 +53,7 @@ const App: React.FC = () => {
         <GestureHandlerRootView style={{flex: 1}}>
           <SafeAreaProvider>
             <ThemedStatusBar />
+            <SessionBootstrap />
             <AppNavigator />
           </SafeAreaProvider>
         </GestureHandlerRootView>

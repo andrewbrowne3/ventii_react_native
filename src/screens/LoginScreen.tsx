@@ -14,7 +14,7 @@ export const LoginScreen: React.FC = () => {
   const isLoading = useSelector((s: RootState) => s.auth.isLoading);
   const error = useSelector((s: RootState) => s.auth.error);
   const [email, setEmail] = useState('demo@ventii.app');
-  const [password, setPassword] = useState('demo');
+  const [password, setPassword] = useState('demo12345');
 
   const handle = () => dispatch(loginUser({email, password}));
 
@@ -75,7 +75,7 @@ export const LoginScreen: React.FC = () => {
           </Pressable>
 
           <Text style={{color: t.text.tertiary, fontSize: 12, textAlign: 'center', marginTop: 14}}>
-            Demo mode · any email + password works
+            Demo · demo@ventii.app / demo12345
           </Text>
         </View>
       </KeyboardAvoidingView>

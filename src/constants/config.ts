@@ -1,8 +1,8 @@
 /* App-wide config. Backend URLs swap from mock → real later. */
 
 export const API_CONFIG = {
-  BASE_URL: 'http://localhost:8000',  // TODO: real URL when backend lands
-  AGENT_URL: 'http://localhost:4012',
+  BASE_URL: 'https://ventii.andrewbrowne.org',  // live Django backend
+  AGENT_URL: 'http://localhost:4012',           // AI agent service — not deployed yet
   TIMEOUT: 10000,
   ENDPOINTS: {
     AUTH: {

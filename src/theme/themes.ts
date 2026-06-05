@@ -7,9 +7,11 @@
  * Reserved accent families (do not mix-and-match per design language):
  *   aurora   — platinum (primary CTA, premium surfaces)
  *   beam     — blue (info, links, calendar)
- *   glow     — gold (rewards, achievements)
+ *   glow     — gold (rewards, achievements, VENTII Pro/Black tier)
  *   deal     — mint (deals, discounts)
- *   pulse    — purple (RESERVED FOR AI surfaces only — DO NOT use elsewhere)
+ *   pulse    — champagne/gold (RESERVED FOR VENTII AI — "black/gold luxury,"
+ *              per the client's design law. NEVER purple/pink. AI is the only
+ *              surface allowed the strongest/gradient treatment.)
  */
 export type ThemeMode = 'dark' | 'light';
 
@@ -71,7 +73,7 @@ export const darkTheme: Theme = {
     beam:   {base: '#5B9CFF', tint: '#8BBAFF', deep: '#3A7AE0', bg: 'rgba(91, 156, 255, 0.14)'},
     glow:   {base: '#FFD56B', tint: '#FFE399', deep: '#E0B040', bg: 'rgba(255, 213, 107, 0.14)'},
     deal:   {base: '#5BE5B8', tint: '#8BF0D0', deep: '#3AC598', bg: 'rgba(91, 229, 184, 0.14)'},
-    pulse:  {base: '#B594FF', tint: '#D0B6FF', deep: '#8E6BE5', bg: 'rgba(181, 148, 255, 0.16)'},
+    pulse:  {base: '#E5C988', tint: '#F2DEAE', deep: '#C2A052', bg: 'rgba(229, 201, 136, 0.14)'},
   },
   status: {
     success: '#5BE5B8',
@@ -105,7 +107,7 @@ export const lightTheme: Theme = {
     beam:   {base: '#2870E0', tint: '#5B9CFF', deep: '#1B4FB0', bg: 'rgba(40, 112, 224, 0.10)'},
     glow:   {base: '#D49A1F', tint: '#FFD56B', deep: '#A07512', bg: 'rgba(212, 154, 31, 0.12)'},
     deal:   {base: '#1FAA7A', tint: '#5BE5B8', deep: '#0F7A56', bg: 'rgba(31, 170, 122, 0.10)'},
-    pulse:  {base: '#7E5BCC', tint: '#B594FF', deep: '#5A3FA0', bg: 'rgba(126, 91, 204, 0.10)'},
+    pulse:  {base: '#A8842E', tint: '#D9B86A', deep: '#7E6220', bg: 'rgba(168, 132, 46, 0.12)'},
   },
   status: {
     success: '#1FAA7A',

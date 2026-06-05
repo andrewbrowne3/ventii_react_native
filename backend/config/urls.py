@@ -3,7 +3,7 @@ from django.contrib import admin
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
-from apps.accounts.views import LoginView, LogoutView, ProfileView
+from apps.accounts.views import LoginView, LogoutView, ProfileView, RegisterView
 from apps.events.views import EventViewSet
 from apps.inbox.views import InboxThreadViewSet
 from apps.profiles.views import ProfileViewSet
@@ -17,6 +17,8 @@ router.register(r'tickets', OwnedTicketViewSet, basename='ticket')
 router.register(r'inbox', InboxThreadViewSet, basename='inbox')
 
 auth_patterns = [
+    # Public self-registration is intentionally NOT routed — accounts are
+    # created via Django admin only. (RegisterView stays in code, dormant.)
     path('login/', LoginView.as_view(), name='login'),
     path('logout/', LogoutView.as_view(), name='logout'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),

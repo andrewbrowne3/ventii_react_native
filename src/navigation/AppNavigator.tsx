@@ -19,6 +19,7 @@ import {EventDetailScreen} from '../screens/EventDetailScreen';
 import {WalletScreen} from '../screens/WalletScreen';
 import {TicketDetailScreen} from '../screens/TicketDetailScreen';
 import {SettingsScreen} from '../screens/SettingsScreen';
+import {CreateEventScreen} from '../screens/CreateEventScreen';
 
 const RootStack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<BottomTabParamList>();
@@ -123,6 +124,11 @@ export const AppNavigator: React.FC = () => {
               options={{presentation: 'card', animation: 'slide_from_bottom'}}
             />
             <RootStack.Screen name="Wallet" component={WalletScreen} options={{presentation: 'card'}} />
+            <RootStack.Screen
+              name="CreateEvent"
+              component={CreateEventScreen}
+              options={{presentation: 'modal'}}
+            />
             <RootStack.Screen name="TicketDetail" component={TicketDetailScreen} />
             <RootStack.Screen
               name="Settings"

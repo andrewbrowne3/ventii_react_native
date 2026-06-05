@@ -12,6 +12,7 @@ export type RootStackParamList = {
   Wallet: undefined;
   TicketDetail: {ticket: OwnedTicket};
   Settings: undefined;
+  CreateEvent: undefined;
 };
 
 export type BottomTabParamList = {

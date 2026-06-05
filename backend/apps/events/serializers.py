@@ -1,5 +1,6 @@
 from rest_framework import serializers
 
+from apps.profiles.models import Profile
 from apps.profiles.serializers import ProfileSerializer
 
 from .models import Deal, Event, TicketOption
@@ -39,3 +40,20 @@ class EventSerializer(serializers.ModelSerializer):
             'venue', 'ticket_options', 'deals', 'cover_charge',
             'age_restriction', 'going_count', 'interested_count',
         )
+
+
+class EventCreateSerializer(serializers.ModelSerializer):
+    """Write serializer for posting an event from the app. The creator's
+    profile is added as a host in the view; venue is an existing profile."""
+
+    venue = serializers.PrimaryKeyRelatedField(queryset=Profile.objects.all())
+    cover_charge = serializers.FloatField(required=False, allow_null=True)
+
+    class Meta:
+        model = Event
+        fields = (
+            'id', 'title', 'flyer_url', 'date', 'start_time', 'end_time',
+            'description', 'vibe_tags', 'music_tags', 'venue',
+            'cover_charge', 'age_restriction',
+        )
+        read_only_fields = ('id',)

@@ -11,6 +11,7 @@ import {useTheme} from '../hooks/useTheme';
 
 import {LoginScreen} from '../screens/LoginScreen';
 import {HomeFeedScreen} from '../screens/HomeFeedScreen';
+import {LineupScreen} from '../screens/LineupScreen';
 import {CalendarScreen} from '../screens/CalendarScreen';
 import {AIConciergeScreen} from '../screens/AIConciergeScreen';
 import {ActivityScreen} from '../screens/ActivityScreen';
@@ -54,6 +55,10 @@ const MainTabs: React.FC = () => {
       <Tab.Screen
         name="HomeTab" component={HomeFeedScreen}
         options={{tabBarIcon: ({focused, color}) => <TabIcon label="◇" focused={focused} color={color} />}}
+      />
+      <Tab.Screen
+        name="LineupTab" component={LineupScreen}
+        options={{tabBarIcon: ({focused, color}) => <TabIcon label="♫" focused={focused} color={color} />}}
       />
       <Tab.Screen
         name="CalendarTab" component={CalendarScreen}

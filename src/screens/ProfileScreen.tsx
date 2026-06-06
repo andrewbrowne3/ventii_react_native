@@ -163,6 +163,11 @@ export const ProfileScreen: React.FC = () => {
                 </Text>
               </View>
               <Pressable
+                onPress={() => nav.navigate('HostScan')}
+                style={[styles.logoutBtn, {borderColor: t.border.strong}]}>
+                <Text style={{color: t.text.primary, fontWeight: '700'}}>Scan Tickets (Host)</Text>
+              </Pressable>
+              <Pressable
                 onPress={() => dispatch(logoutUser())}
                 style={[styles.logoutBtn, {borderColor: t.status.danger}]}>
                 <Text style={{color: t.status.danger, fontWeight: '700'}}>Sign Out</Text>

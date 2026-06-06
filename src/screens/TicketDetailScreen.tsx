@@ -2,6 +2,7 @@ import React from 'react';
 import {View, Text, Image, ScrollView, StyleSheet, Pressable} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useRoute, useNavigation, RouteProp} from '@react-navigation/native';
+import QRCode from 'react-native-qrcode-svg';
 import {RootStackParamList} from '../types/navigation';
 import {useTheme} from '../hooks/useTheme';
 import {Pill} from '../components/Pill';
@@ -45,18 +46,33 @@ export const TicketDetailScreen: React.FC = () => {
             <View style={[styles.perfNotch, {backgroundColor: t.bg.primary, right: -10}]} />
           </View>
 
-          {/* QR placeholder */}
+          {/* QR — real signed token if present, placeholder while pending */}
           <View style={styles.qrSection}>
-            <View style={[styles.qrBox, {backgroundColor: t.bg.secondary, borderColor: t.border.strong}]}>
-              <QRPlaceholder color={t.text.primary} bg={t.bg.secondary} />
-              <Text style={{color: t.text.tertiary, fontSize: 9, marginTop: 8, fontWeight: '600', letterSpacing: 1.2}}>
-                DEMO PASS · NOT REAL
-              </Text>
+            <View style={[styles.qrBox, {backgroundColor: '#fff', borderColor: t.border.strong}]}>
+              {ticket.qr_value ? (
+                <QRCode value={ticket.qr_value} size={216} backgroundColor="#fff" color="#000" />
+              ) : (
+                <>
+                  <QRPlaceholder color={t.text.primary} bg={t.bg.secondary} />
+                  <Text style={{color: t.text.tertiary, fontSize: 9, marginTop: 8, fontWeight: '600', letterSpacing: 1.2}}>
+                    PENDING · PASS NOT YET ACTIVE
+                  </Text>
+                </>
+              )}
             </View>
+            {!!ticket.confirmation_code && (
+              <Text style={{color: t.text.tertiary, fontSize: 12, marginTop: 10, fontWeight: '700', letterSpacing: 2}}>
+                {ticket.confirmation_code}
+              </Text>
+            )}
 
             <View style={{marginTop: 18, gap: 12}}>
-              <KV label="Ticket Type" value={`${ticket.quantity}× ${ticket.option.name}`} t={t} />
-              <KV label="Order" value={ticket.order_id.toUpperCase()} t={t} />
+              <KV
+                label="Pass Type"
+                value={ticket.option ? `${ticket.quantity}× ${ticket.option.name}` : 'RSVP'}
+                t={t}
+              />
+              <KV label="Order" value={(ticket.order_id || ticket.confirmation_code || '—').toUpperCase()} t={t} />
               <KV label="Date" value={e.date} t={t} />
               <KV label="Doors" value={e.start_time} t={t} />
               <KV label="Status" value={ticket.status.toUpperCase()} t={t} accent={t.accents.deal.base} />
@@ -64,7 +80,7 @@ export const TicketDetailScreen: React.FC = () => {
 
             <View style={{marginTop: 18, flexDirection: 'row', flexWrap: 'wrap', gap: 6}}>
               <Pill label="Show QR at entry" accent="aurora" size="sm" />
-              {ticket.option.perks.slice(0, 2).map((p) => (
+              {(ticket.option?.perks ?? []).slice(0, 2).map((p) => (
                 <Pill key={p} label={p} accent="beam" size="sm" />
               ))}
             </View>
@@ -72,8 +88,9 @@ export const TicketDetailScreen: React.FC = () => {
         </View>
 
         <Text style={{color: t.text.tertiary, fontSize: 11, marginTop: 18, textAlign: 'center', paddingHorizontal: 20, lineHeight: 16}}>
-          This pass is a demo. The QR code above is intentionally not scannable.
-          Live tickets will arrive in your wallet after a real purchase.
+          {ticket.qr_value
+            ? ticket.entry_instructions || 'Show this pass at the door for entry.'
+            : 'This pass activates once your payment is confirmed.'}
         </Text>
       </ScrollView>
     </View>

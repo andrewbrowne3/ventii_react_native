@@ -1,13 +1,20 @@
 import React, {useState} from 'react';
 import {
   View, Text, Image, ScrollView, StyleSheet, Dimensions, TouchableOpacity, Pressable,
+  Alert, Linking, Modal, TextInput, ActivityIndicator,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useRoute, useNavigation, RouteProp} from '@react-navigation/native';
+import {useDispatch} from 'react-redux';
 import {RootStackParamList} from '../types/navigation';
+import {AppDispatch} from '../store/store';
 import {useTheme} from '../hooks/useTheme';
 import {Pill} from '../components/Pill';
 import {HostStack} from '../components/HostStack';
+import {CommitCTA, Deal, DealOffer, TicketOption} from '../types';
+import {rsvpToEvent, checkoutEvent, redeemDeal} from '../services/api';
+import {fetchTickets} from '../store/slices/walletSlice';
+import {toggleSaved} from '../store/slices/feedSlice';
 
 const {width: W} = Dimensions.get('window');
 const HERO_H = 380;
@@ -15,12 +22,105 @@ const HERO_H = 380;
 type Tab = 'Details' | 'Vibe' | 'Ticket' | 'Deal' | 'Info';
 const TABS: Tab[] = ['Details', 'Vibe', 'Ticket', 'Deal', 'Info'];
 
+// Maps the server-resolved CTA to the bottom button's label + whether it's live.
+const CTA_LABEL: Record<CommitCTA, string> = {
+  rsvp: 'RSVP',
+  checkout: 'Get Tickets',
+  save_only: 'Save to Calendar',
+  open_external: 'Get Tickets ↗',
+  locked_member: 'Gold Members Only',
+  sold_out: 'Sold Out',
+};
+
 export const EventDetailScreen: React.FC = () => {
   const t = useTheme();
-  const nav = useNavigation();
+  const nav = useNavigation<any>();
+  const dispatch = useDispatch<AppDispatch>();
   const route = useRoute<RouteProp<RootStackParamList, 'EventDetail'>>();
   const {event} = route.params;
   const [tab, setTab] = useState<Tab>('Details');
+  const [busy, setBusy] = useState(false);
+
+  // Staff-code modal state for deal redemption.
+  const [redeemTarget, setRedeemTarget] = useState<{deal: Deal; offer: DealOffer} | null>(null);
+
+  // Server tells us which action to show; fall back if the field isn't present.
+  const cta: CommitCTA = event.cta ?? (event.ticket_options.length > 0 ? 'checkout' : 'rsvp');
+  const ctaDisabled = cta === 'sold_out' || busy;
+
+  const onRsvp = async () => {
+    setBusy(true);
+    try {
+      await rsvpToEvent(event.id);
+      dispatch(fetchTickets());
+      Alert.alert('You’re in 🎟️', 'Your pass is in the Wallet.', [
+        {text: 'View Wallet', onPress: () => nav.navigate('Wallet')},
+        {text: 'OK'},
+      ]);
+    } catch (e: any) {
+      const cta2 = e?.response?.data?.cta;
+      Alert.alert('Couldn’t RSVP', cta2 ? `(${cta2})` : 'Please try again.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onBuy = async (opt: TicketOption) => {
+    setBusy(true);
+    try {
+      const res = await checkoutEvent(event.id, opt.id, 1);
+      dispatch(fetchTickets());
+      Alert.alert('Checkout started', `Ready to pay for ${opt.name}.\n(Payment sheet coming soon.)`);
+      // When Stripe is configured this returns res.client_secret for the
+      // payment sheet — wired in a later pass.
+      void res;
+    } catch (e: any) {
+      if (e?.response?.status === 503) {
+        Alert.alert('Coming soon', 'Payment integration is being set up.');
+      } else {
+        Alert.alert('Couldn’t start checkout', 'Please try again.');
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onCta = () => {
+    switch (cta) {
+      case 'rsvp':
+        return onRsvp();
+      case 'checkout':
+        return setTab('Ticket');
+      case 'save_only':
+        dispatch(toggleSaved(event.id));
+        return Alert.alert('Saved', 'Added to your calendar.');
+      case 'open_external':
+        return event.external_url
+          ? Linking.openURL(event.external_url)
+          : Alert.alert('Unavailable', 'No external link provided.');
+      case 'locked_member':
+        return Alert.alert('Gold members only', 'Upgrade to VENTII Gold to unlock. (Coming soon.)');
+      case 'sold_out':
+        return undefined;
+    }
+  };
+
+  const onRedeem = async (staffCode: string) => {
+    if (!redeemTarget) return;
+    setBusy(true);
+    try {
+      await redeemDeal(redeemTarget.deal.id, redeemTarget.offer.id, staffCode);
+      setRedeemTarget(null);
+      Alert.alert('Redeemed ✅', redeemTarget.deal.success_message || 'Show this to staff.');
+    } catch (e: any) {
+      const msg = e?.response?.data?.detail || (e?.response?.data?.cta
+        ? `Can’t redeem (${e.response.data.cta}).`
+        : 'Invalid or expired code.');
+      Alert.alert('Couldn’t redeem', msg);
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
     <View style={[styles.container, {backgroundColor: t.bg.primary}]}>
@@ -95,8 +195,8 @@ export const EventDetailScreen: React.FC = () => {
         <View style={{padding: 20, paddingBottom: 120}}>
           {tab === 'Details' && <DetailsTab event={event} t={t} />}
           {tab === 'Vibe' && <VibeTab event={event} t={t} />}
-          {tab === 'Ticket' && <TicketTab event={event} t={t} />}
-          {tab === 'Deal' && <DealTab event={event} t={t} />}
+          {tab === 'Ticket' && <TicketTab event={event} t={t} onBuy={onBuy} busy={busy} />}
+          {tab === 'Deal' && <DealTab event={event} t={t} onRedeem={(deal, offer) => setRedeemTarget({deal, offer})} />}
           {tab === 'Info' && <InfoTab event={event} t={t} />}
         </View>
       </ScrollView>
@@ -119,12 +219,32 @@ export const EventDetailScreen: React.FC = () => {
         </View>
         <TouchableOpacity
           activeOpacity={0.85}
-          style={[styles.cta, {backgroundColor: t.accents.aurora.base}]}>
-          <Text style={{color: t.text.inverse, fontSize: 15, fontWeight: '700', letterSpacing: 0.3}}>
-            {event.ticket_options.length > 0 ? 'Get Tickets' : 'RSVP'}
-          </Text>
+          disabled={ctaDisabled}
+          onPress={onCta}
+          style={[
+            styles.cta,
+            {backgroundColor: ctaDisabled ? t.bg.secondary : t.accents.aurora.base},
+          ]}>
+          {busy ? (
+            <ActivityIndicator color={t.text.inverse} />
+          ) : (
+            <Text style={{
+              color: ctaDisabled ? t.text.tertiary : t.text.inverse,
+              fontSize: 15, fontWeight: '700', letterSpacing: 0.3,
+            }}>
+              {CTA_LABEL[cta]}
+            </Text>
+          )}
         </TouchableOpacity>
       </SafeAreaView>
+
+      <StaffCodeModal
+        target={redeemTarget}
+        busy={busy}
+        t={t}
+        onClose={() => setRedeemTarget(null)}
+        onSubmit={onRedeem}
+      />
     </View>
   );
 };
@@ -179,14 +299,14 @@ const VibeTab: React.FC<{event: any; t: any}> = ({event, t}) => (
   </View>
 );
 
-const TicketTab: React.FC<{event: any; t: any}> = ({event, t}) => (
+const TicketTab: React.FC<{event: any; t: any; onBuy: (o: TicketOption) => void; busy: boolean}> = ({event, t, onBuy, busy}) => (
   <View style={{gap: 12}}>
     {event.ticket_options.length === 0 ? (
       <Text style={{color: t.text.secondary}}>
         {event.cover_charge === 0 ? 'Free entry — no tickets needed.' : `$${event.cover_charge} cash at door.`}
       </Text>
     ) : (
-      event.ticket_options.map((opt: any) => (
+      event.ticket_options.map((opt: TicketOption) => (
         <View
           key={opt.id}
           style={{
@@ -210,21 +330,39 @@ const TicketTab: React.FC<{event: any; t: any}> = ({event, t}) => (
               ))}
             </View>
           )}
-          {opt.remaining && opt.remaining < 25 && (
+          {!!opt.remaining && opt.remaining < 25 && (
             <Pill label={`Only ${opt.remaining} left`} accent="glow" size="sm" style={{marginTop: 10}} />
           )}
+          <TouchableOpacity
+            activeOpacity={0.85}
+            disabled={busy || opt.locked}
+            onPress={() => onBuy(opt)}
+            style={{
+              marginTop: 14,
+              paddingVertical: 12,
+              borderRadius: 100,
+              alignItems: 'center',
+              backgroundColor: opt.locked ? t.bg.elevated : t.accents.aurora.base,
+            }}>
+            <Text style={{
+              color: opt.locked ? t.text.tertiary : t.text.inverse,
+              fontWeight: '700', fontSize: 14,
+            }}>
+              {opt.locked ? 'Gold members only' : `Buy · $${opt.price}`}
+            </Text>
+          </TouchableOpacity>
         </View>
       ))
     )}
   </View>
 );
 
-const DealTab: React.FC<{event: any; t: any}> = ({event, t}) => (
+const DealTab: React.FC<{event: any; t: any; onRedeem: (deal: Deal, offer: DealOffer) => void}> = ({event, t, onRedeem}) => (
   <View style={{gap: 12}}>
     {event.deals.length === 0 ? (
       <Text style={{color: t.text.secondary}}>No deals tonight.</Text>
     ) : (
-      event.deals.map((d: any) => (
+      event.deals.map((d: Deal) => (
         <View
           key={d.id}
           style={{
@@ -239,6 +377,35 @@ const DealTab: React.FC<{event: any; t: any}> = ({event, t}) => (
           </Text>
           <Text style={{color: t.text.primary, fontSize: 17, fontWeight: '700', marginTop: 6}}>{d.title}</Text>
           <Text style={{color: t.text.secondary, marginTop: 4, fontSize: 13}}>{d.description}</Text>
+
+          {/* Per-offer redeem buttons (from the deals contract). */}
+          {(d.offers ?? []).map((offer) => {
+            const locked = offer.cta && offer.cta !== 'redeem';
+            return (
+              <TouchableOpacity
+                key={offer.id}
+                activeOpacity={0.85}
+                disabled={!!locked}
+                onPress={() => onRedeem(d, offer)}
+                style={{
+                  marginTop: 12,
+                  paddingVertical: 11,
+                  paddingHorizontal: 14,
+                  borderRadius: 100,
+                  backgroundColor: locked ? t.bg.elevated : t.accents.deal.base,
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                }}>
+                <Text style={{color: locked ? t.text.tertiary : t.text.inverse, fontWeight: '700', fontSize: 13}}>
+                  {offer.title}
+                </Text>
+                <Text style={{color: locked ? t.text.tertiary : t.text.inverse, fontWeight: '700', fontSize: 12}}>
+                  {locked ? offer.cta?.replace('_', ' ') : 'Redeem ›'}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
       ))
     )}
@@ -266,6 +433,60 @@ const InfoRow: React.FC<{label: string; value: string; t: any}> = ({label, value
     <Text style={{color: t.text.primary, fontSize: 14, fontWeight: '600'}}>{value}</Text>
   </View>
 );
+
+// Bottom-sheet-ish modal to enter the venue staff code for a deal redemption.
+const StaffCodeModal: React.FC<{
+  target: {deal: Deal; offer: DealOffer} | null;
+  busy: boolean;
+  t: any;
+  onClose: () => void;
+  onSubmit: (code: string) => void;
+}> = ({target, busy, t, onClose, onSubmit}) => {
+  const [code, setCode] = useState('');
+  return (
+    <Modal visible={!!target} transparent animationType="slide" onRequestClose={onClose}>
+      <Pressable style={styles.modalBackdrop} onPress={onClose}>
+        <Pressable
+          style={[styles.modalCard, {backgroundColor: t.bg.elevated, borderColor: t.border.subtle}]}
+          onPress={() => {}}>
+          <Text style={{color: t.text.primary, fontSize: 18, fontWeight: '800'}}>
+            {target?.offer.title}
+          </Text>
+          <Text style={{color: t.text.secondary, marginTop: 4, fontSize: 13}}>
+            Ask venue staff for today’s code, then enter it to redeem.
+          </Text>
+          <TextInput
+            value={code}
+            onChangeText={setCode}
+            placeholder="Staff code"
+            placeholderTextColor={t.text.tertiary}
+            autoCapitalize="characters"
+            style={[styles.input, {color: t.text.primary, backgroundColor: t.bg.secondary, borderColor: t.border.subtle}]}
+          />
+          <TouchableOpacity
+            activeOpacity={0.85}
+            disabled={busy || !code.trim()}
+            onPress={() => onSubmit(code.trim())}
+            style={{
+              marginTop: 14, paddingVertical: 13, borderRadius: 100, alignItems: 'center',
+              backgroundColor: code.trim() ? t.accents.deal.base : t.bg.secondary,
+            }}>
+            {busy ? (
+              <ActivityIndicator color={t.text.inverse} />
+            ) : (
+              <Text style={{color: code.trim() ? t.text.inverse : t.text.tertiary, fontWeight: '700'}}>
+                Redeem
+              </Text>
+            )}
+          </TouchableOpacity>
+          <Pressable onPress={onClose} style={{marginTop: 10, alignItems: 'center'}}>
+            <Text style={{color: t.text.tertiary, fontWeight: '600'}}>Cancel</Text>
+          </Pressable>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+};
 
 const styles = StyleSheet.create({
   container: {flex: 1},
@@ -335,5 +556,28 @@ const styles = StyleSheet.create({
     paddingHorizontal: 26,
     paddingVertical: 14,
     borderRadius: 100,
+    minWidth: 130,
+    alignItems: 'center',
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalCard: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderWidth: 1,
+    padding: 22,
+    paddingBottom: 34,
+  },
+  input: {
+    marginTop: 16,
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 16,
+    letterSpacing: 2,
   },
 });

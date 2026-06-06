@@ -98,3 +98,41 @@ api.interceptors.response.use(
 export function unwrapList<T>(data: any): T[] {
   return Array.isArray(data) ? data : (data?.results ?? []);
 }
+
+// ───── ticketing / deals actions ──────────────────────────────────────────
+
+/** RSVP to an event → mints a free pass into the wallet. Returns the Pass. */
+export async function rsvpToEvent(eventId: string) {
+  const res = await api.post(`/api/events/${eventId}/rsvp/`);
+  return res.data;
+}
+
+/** Start paid checkout → {client_secret, pass}. Throws 503 until Stripe is set. */
+export async function checkoutEvent(eventId: string, optionId: string, quantity = 1) {
+  const res = await api.post(`/api/events/${eventId}/checkout/`, {
+    option_id: optionId,
+    quantity,
+  });
+  return res.data;
+}
+
+/** Redeem a deal offer with a venue staff code → mints a Redemption voucher. */
+export async function redeemDeal(dealId: string, offerId: string, staffCode: string) {
+  const res = await api.post(`/api/deals/${dealId}/redeem/`, {
+    offer_id: offerId,
+    staff_code: staffCode,
+  });
+  return res.data;
+}
+
+/** The user's redeemed deal vouchers (Wallet > Deals). */
+export async function fetchRedemptions() {
+  const res = await api.get('/api/redemptions/');
+  return unwrapList(res.data);
+}
+
+/** Host scan: verify + check in a pass by its signed QR value → {ok, reason, pass}. */
+export async function scanPass(qrValue: string) {
+  const res = await api.post('/api/scan/', {qr_value: qrValue});
+  return res.data;
+}

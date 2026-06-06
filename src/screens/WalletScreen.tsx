@@ -75,7 +75,7 @@ const TicketCard: React.FC<{ticket: OwnedTicket; onPress: () => void; t: any}> =
           </View>
           <View style={{flexDirection: 'row', gap: 6, flexWrap: 'wrap'}}>
             <Pill
-              label={`${ticket.quantity} ${ticket.option.name}`}
+              label={ticket.option ? `${ticket.quantity} ${ticket.option.name}` : 'RSVP'}
               accent="beam"
               size="sm"
             />
@@ -85,7 +85,7 @@ const TicketCard: React.FC<{ticket: OwnedTicket; onPress: () => void; t: any}> =
       </View>
       <View style={[styles.cardDashed, {borderColor: t.border.subtle}]} />
       <View style={{flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 14, paddingVertical: 12}}>
-        <Text style={{color: t.text.tertiary, fontSize: 11, fontWeight: '600'}}>ORDER {ticket.order_id.toUpperCase()}</Text>
+        <Text style={{color: t.text.tertiary, fontSize: 11, fontWeight: '600'}}>ORDER {(ticket.order_id || ticket.confirmation_code || '—').toUpperCase()}</Text>
         <Text style={{color: t.accents.aurora.base, fontSize: 12, fontWeight: '700'}}>VIEW PASS ›</Text>
       </View>
     </Pressable>

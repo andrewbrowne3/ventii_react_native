@@ -11,6 +11,7 @@ export type RootStackParamList = {
   PublicProfile: {profile: Profile};
   Wallet: undefined;
   TicketDetail: {ticket: OwnedTicket};
+  HostScan: undefined;
   Settings: undefined;
   CreateEvent: undefined;
 };

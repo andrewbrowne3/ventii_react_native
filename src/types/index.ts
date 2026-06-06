@@ -1,5 +1,7 @@
 /* Core entity types — shared across screens, slices, services. */
 
+export type MembershipTier = 'guest' | 'free' | 'pro' | 'gold';
+
 export interface User {
   id: string;
   email: string;
@@ -9,6 +11,7 @@ export interface User {
   full_name: string;
   profile_picture?: string;
   city: string;
+  membership_tier?: MembershipTier;   // backend-set; absent ⇒ treat as 'free'
   created_at: string;
 }
 
@@ -43,6 +46,12 @@ export interface Profile {
 
 export type EventStatus = 'upcoming' | 'live' | 'ended' | 'cancelled';
 
+// Server-resolved call-to-action for the whole event (ventii-ticketing.ts).
+export type CommitCTA =
+  | 'save_only' | 'rsvp' | 'checkout' | 'open_external' | 'locked_member' | 'sold_out';
+export type Visibility = 'open' | 'passcode' | 'member';
+export type Commitment = 'none' | 'rsvp' | 'ticket' | 'external';
+
 export interface Event {
   id: string;
   title: string;
@@ -62,6 +71,15 @@ export interface Event {
   age_restriction?: string;  // '21+', '18+', 'All Ages'
   going_count: number;
   interested_count: number;
+  // ── Two-axis access (resolved per viewer by the backend) ──
+  visibility?: Visibility;
+  commitment?: Commitment;
+  commit_required_tier?: MembershipTier | null;
+  capacity?: number | null;
+  issued_count?: number;
+  currency?: string;
+  access_label?: string;
+  cta?: CommitCTA;           // which button to show; drives EventDetail CTA
 }
 
 export interface TicketOption {
@@ -72,6 +90,19 @@ export interface TicketOption {
   fee: number;
   remaining?: number;
   perks: string[];
+  available?: boolean;
+  required_tier?: MembershipTier | null;
+  is_member_exclusive?: boolean;
+  locked?: boolean;          // true if the viewer's tier is below required_tier
+}
+
+export interface DealOffer {
+  id: string;
+  title: string;
+  image?: string;
+  limit_per_user?: number | null;
+  required_tier?: MembershipTier | null;
+  cta?: 'redeem' | 'locked_member' | 'expired' | 'sold_out' | 'already_redeemed';
 }
 
 export interface Deal {
@@ -80,19 +111,54 @@ export interface Deal {
   description: string;
   valid_until?: string;      // ISO
   redeemed: boolean;
+  subtitle?: string;
+  venue?: string;
+  valid_from?: string | null;
+  required_tier?: MembershipTier | null;
+  total_limit?: number | null;
+  success_message?: string;
+  success_image?: string;
+  offers?: DealOffer[];
 }
 
-export type TicketStatus = 'active' | 'used' | 'expired' | 'transferred';
+// Pass lifecycle (ventii-ticketing.ts) + legacy values kept for mock data.
+export type TicketStatus =
+  | 'issued' | 'valid' | 'checked_in' | 'refunded' | 'voided'
+  | 'active' | 'used' | 'expired' | 'transferred';
+
+export type PassKind = 'rsvp' | 'ticket' | 'member';
 
 export interface OwnedTicket {
   id: string;
   event: Event;
-  option: TicketOption;
+  option: TicketOption | null;   // null for a plain RSVP
   quantity: number;
   status: TicketStatus;
   purchased_at: string;
-  qr_payload: string;        // PLACEHOLDER — not a real scannable QR (intentional)
+  qr_payload: string;        // legacy placeholder
   order_id: string;
+  // ── Pass contract fields ──
+  kind?: PassKind;
+  price?: number;
+  currency?: string;
+  confirmation_code?: string;
+  holder_name?: string;
+  qr_value?: string;         // server-signed token; encode this in the QR
+  entry_instructions?: string;
+}
+
+export interface Redemption {
+  id: string;
+  deal: string | number;
+  offer: string | number;
+  event: string | number;
+  title: string;
+  venue?: string;
+  image?: string;
+  status: 'redeemed' | 'voided';
+  code: string;
+  holder_name?: string;
+  redeemed_at: string;
 }
 
 // ───── Activity / Inbox ─────────────────────────────────────────────────

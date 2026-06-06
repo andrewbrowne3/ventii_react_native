@@ -31,6 +31,8 @@ api_patterns = [
     path('tickets/', tickets.tickets_list, name='tickets'),
     path('tickets/<int:pk>/', tickets.ticket_detail, name='ticket-detail'),
 
+    path('scan/', tickets.scan, name='scan'),
+
     path('inbox/', inbox.inbox_list, name='inbox'),
     path('inbox/activity/', inbox.inbox_activity, name='inbox-activity'),
     path('inbox/<int:pk>/', inbox.inbox_detail, name='inbox-detail'),

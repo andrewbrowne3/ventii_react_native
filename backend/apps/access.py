@@ -120,6 +120,22 @@ def can_commit(t: Optional[dict], user_tier: str, issued_count: int,
     return resolve_commit_cta(t, user_tier, issued_count, passcode_ok) in ("rsvp", "checkout")
 
 
+# ── Scan evaluation (pure) ────────────────────────────────────────────────────
+# Decides whether a pass MAY be admitted given its state. The signature check
+# and the atomic valid->checked_in flip are server-side (see apps.security +
+# the scan view); call this after the pass is verified + loaded.
+def evaluate_scan(status: str, has_qr: bool) -> dict:
+    if not has_qr:
+        return {"ok": False, "reason": "no_qr"}
+    return {
+        "valid": {"ok": True, "reason": "valid"},
+        "issued": {"ok": False, "reason": "not_yet_issued"},
+        "checked_in": {"ok": False, "reason": "already_checked_in"},
+        "refunded": {"ok": False, "reason": "refunded"},
+        "voided": {"ok": False, "reason": "voided"},
+    }[status]
+
+
 # ── Deals ─────────────────────────────────────────────────────────────────────
 def _parse_iso(s: Optional[str]) -> Optional[datetime]:
     if not s:

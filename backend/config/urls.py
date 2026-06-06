@@ -1,32 +1,42 @@
-"""Root URL config. API contracts mirror src/constants/config.ts in the app."""
+"""Root URL config. API contracts mirror src/constants/config.ts in the app.
+
+All views are function-based (no DRF router / viewsets)."""
 from django.contrib import admin
 from django.urls import include, path
-from rest_framework.routers import DefaultRouter
 
-from apps.accounts.views import LoginView, LogoutView, ProfileView, RegisterView
-from apps.events.views import EventViewSet
-from apps.inbox.views import InboxThreadViewSet
-from apps.profiles.views import ProfileViewSet
-from apps.tickets.views import OwnedTicketViewSet
-from rest_framework_simplejwt.views import TokenRefreshView
-
-router = DefaultRouter()
-router.register(r'events', EventViewSet, basename='event')
-router.register(r'profiles', ProfileViewSet, basename='profile')
-router.register(r'tickets', OwnedTicketViewSet, basename='ticket')
-router.register(r'inbox', InboxThreadViewSet, basename='inbox')
+from apps.accounts import views as accounts
+from apps.events import views as events
+from apps.inbox import views as inbox
+from apps.profiles import views as profiles
+from apps.tickets import views as tickets
 
 auth_patterns = [
     # Public self-registration is intentionally NOT routed — accounts are
-    # created via Django admin only. (RegisterView stays in code, dormant.)
-    path('login/', LoginView.as_view(), name='login'),
-    path('logout/', LogoutView.as_view(), name='logout'),
-    path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
-    path('profile/', ProfileView.as_view(), name='profile'),
+    # created via Django admin only. (accounts.register stays in code, dormant.)
+    path('login/', accounts.login, name='login'),
+    path('logout/', accounts.logout, name='logout'),
+    path('token/refresh/', accounts.token_refresh, name='token_refresh'),
+    path('profile/', accounts.me, name='profile'),
+]
+
+api_patterns = [
+    path('events/', events.events_list_create, name='events'),
+    path('events/<int:pk>/', events.event_detail, name='event-detail'),
+
+    path('profiles/', profiles.profiles_list, name='profiles'),
+    path('profiles/<int:pk>/', profiles.profile_detail, name='profile-detail'),
+    path('profiles/<int:pk>/events/', profiles.profile_events, name='profile-events'),
+
+    path('tickets/', tickets.tickets_list, name='tickets'),
+    path('tickets/<int:pk>/', tickets.ticket_detail, name='ticket-detail'),
+
+    path('inbox/', inbox.inbox_list, name='inbox'),
+    path('inbox/activity/', inbox.inbox_activity, name='inbox-activity'),
+    path('inbox/<int:pk>/', inbox.inbox_detail, name='inbox-detail'),
 ]
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/auth/', include(auth_patterns)),
-    path('api/', include(router.urls)),
+    path('api/', include(api_patterns)),
 ]

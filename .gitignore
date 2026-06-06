@@ -68,3 +68,11 @@ buck-out/
 .vscode/
 *.swp
 *.swo
+
+# Python / Django backend (local dev)
+backend/.venv/
+backend/venv/
+__pycache__/
+*.pyc
+backend/data/db.sqlite3
+backend/staticfiles/

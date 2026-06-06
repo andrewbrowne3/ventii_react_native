@@ -178,7 +178,10 @@ class Command(BaseCommand):
             OwnedTicket.objects.get_or_create(
                 user=user, event=event, option=opt,
                 defaults={
-                    'quantity': 1, 'status': 'active',
+                    'quantity': 1, 'status': 'valid', 'kind': 'ticket',
+                    'price': opt.price, 'currency': event.currency,
+                    'holder_name': user.full_name,
+                    'confirmation_code': f'VEN-DEMO{i+1:04d}',
                     'qr_payload': f'DEMO-PLACEHOLDER-{i+1}',
                     'order_id': f'ORD-DEMO-{i+1:04d}',
                 },

@@ -17,8 +17,9 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = (
             'id', 'email', 'username', 'first_name', 'last_name',
-            'full_name', 'profile_picture', 'city', 'created_at',
+            'full_name', 'profile_picture', 'city', 'membership_tier', 'created_at',
         )
+        read_only_fields = ('membership_tier',)  # set via admin, never self-assigned
 
 
 class EmailTokenObtainPairSerializer(TokenObtainPairSerializer):

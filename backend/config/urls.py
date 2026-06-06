@@ -22,6 +22,7 @@ auth_patterns = [
 api_patterns = [
     path('events/', events.events_list_create, name='events'),
     path('events/<int:pk>/', events.event_detail, name='event-detail'),
+    path('events/<int:pk>/rsvp/', events.event_rsvp, name='event-rsvp'),
 
     path('profiles/', profiles.profiles_list, name='profiles'),
     path('profiles/<int:pk>/', profiles.profile_detail, name='profile-detail'),

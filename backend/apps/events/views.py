@@ -1,10 +1,17 @@
+import uuid
+
+from django.db import transaction
 from django.shortcuts import get_object_or_404
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.pagination import PageNumberPagination
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
+from apps import access
 from apps.profiles.models import Profile
+from apps.security import sign_qr
+from apps.tickets.models import OwnedTicket
+from apps.tickets.serializers import OwnedTicketSerializer
 
 from .models import Event
 from .serializers import EventCreateSerializer, EventSerializer
@@ -66,3 +73,53 @@ def event_detail(request, pk):
     serializer.is_valid(raise_exception=True)
     serializer.save()
     return Response(EventCreateSerializer(event, context={'request': request}).data)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def event_rsvp(request, pk):
+    """POST /api/events/{id}/rsvp/ — mint a free RSVP pass into the wallet.
+
+    Server-authoritative: re-checks the commit CTA and reserves capacity
+    atomically (free RSVPs count). Idempotent — a user who already holds a live
+    RSVP pass for this event gets that same pass back, with no double-count."""
+    tier = getattr(request.user, 'membership_tier', access.FREE)
+
+    with transaction.atomic():
+        event = get_object_or_404(Event.objects.select_for_update(), pk=pk)
+
+        existing = OwnedTicket.objects.filter(
+            user=request.user, event=event, kind='rsvp',
+            status__in=('issued', 'valid', 'checked_in'),
+        ).first()
+        if existing:
+            return Response(
+                OwnedTicketSerializer(existing, context={'request': request}).data,
+                status=200,
+            )
+
+        cta = access.resolve_commit_cta(
+            access.ticketing_from_event(event), tier, event.issued_count,
+        )
+        if cta != 'rsvp':
+            return Response(
+                {'detail': 'RSVP is not available for this event.', 'cta': cta},
+                status=409,
+            )
+
+        # Reserve capacity under the row lock (free RSVPs count against it).
+        event.issued_count = event.issued_count + 1
+        event.save(update_fields=['issued_count'])
+
+        pass_obj = OwnedTicket.objects.create(
+            user=request.user, event=event, option=None, quantity=1,
+            kind='rsvp', price=0, currency=event.currency, status='valid',
+            holder_name=request.user.full_name,
+            confirmation_code=f'VEN-{uuid.uuid4().hex[:10].upper()}',
+        )
+        pass_obj.qr_value = sign_qr(pass_obj)
+        pass_obj.save(update_fields=['qr_value'])
+
+    return Response(
+        OwnedTicketSerializer(pass_obj, context={'request': request}).data, status=201,
+    )

@@ -3,4 +3,13 @@ from django.contrib.auth.admin import UserAdmin
 
 from .models import User
 
-admin.site.register(User, UserAdmin)
+
+@admin.register(User)
+class VentiiUserAdmin(UserAdmin):
+    """Standard user admin + the VENTII membership tier (set tiers here)."""
+
+    list_display = ('email', 'username', 'membership_tier', 'is_staff')
+    list_filter = UserAdmin.list_filter + ('membership_tier',)
+    fieldsets = UserAdmin.fieldsets + (
+        ('VENTII', {'fields': ('membership_tier', 'city', 'profile_picture')}),
+    )

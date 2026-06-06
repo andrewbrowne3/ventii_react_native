@@ -39,7 +39,7 @@ def inbox_activity(request):
     qs = (
         ActivityItem.objects.filter(user=request.user)
         .select_related('actor_profile', 'actor_user', 'event__venue')
-        .prefetch_related('event__hosts', 'event__ticket_options', 'event__deals')
+        .prefetch_related('event__hosts', 'event__ticket_options', 'event__deals', 'event__deals__offers')
     )
     paginator = PageNumberPagination()
     page = paginator.paginate_queryset(qs, request)

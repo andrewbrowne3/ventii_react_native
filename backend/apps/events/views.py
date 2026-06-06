@@ -7,20 +7,20 @@ from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
-from apps import access
+from apps import access, payments
 from apps.profiles.models import Profile
 from apps.security import sign_qr
 from apps.tickets.models import OwnedTicket
 from apps.tickets.serializers import OwnedTicketSerializer
 
-from .models import Event
+from .models import Event, TicketOption
 from .serializers import EventCreateSerializer, EventSerializer
 
 
 def _event_qs():
     return (
         Event.objects.select_related('venue')
-        .prefetch_related('hosts', 'ticket_options', 'deals')
+        .prefetch_related('hosts', 'ticket_options', 'deals', 'deals__offers')
         .all()
     )
 
@@ -122,4 +122,61 @@ def event_rsvp(request, pk):
 
     return Response(
         OwnedTicketSerializer(pass_obj, context={'request': request}).data, status=201,
+    )
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def event_checkout(request, pk):
+    """POST /api/events/{id}/checkout/ {option_id, quantity} -> {client_secret, pass}.
+
+    The SERVER looks up the price (never the client). Reserves capacity and
+    mints an `issued` pass; a Stripe PaymentIntent is created and the pass flips
+    to `valid` (with a signed QR) on the payment webhook. Returns 503 until
+    Stripe is configured — honest, no fake payments."""
+    if not payments.is_configured():
+        return Response({'detail': 'Payment integration coming soon.'}, status=503)
+
+    tier = getattr(request.user, 'membership_tier', access.FREE)
+    quantity = max(1, int(request.data.get('quantity', 1)))
+
+    with transaction.atomic():
+        event = get_object_or_404(Event.objects.select_for_update(), pk=pk)
+        option = get_object_or_404(TicketOption, pk=request.data.get('option_id'), event=event)
+
+        opt_dict = {'available': option.available, 'requiredTier': option.required_tier or None}
+        if not access.is_option_available_to(opt_dict, tier):
+            return Response({'detail': 'This ticket is not available for your tier.'}, status=403)
+
+        cta = access.resolve_commit_cta(
+            access.ticketing_from_event(event), tier, event.issued_count)
+        if cta != 'checkout':
+            return Response({'detail': 'Checkout not available.', 'cta': cta}, status=409)
+
+        if event.capacity is not None and event.issued_count + quantity > event.capacity:
+            return Response({'detail': 'Sold out.', 'cta': 'sold_out'}, status=409)
+
+        event.issued_count = event.issued_count + quantity
+        event.save(update_fields=['issued_count'])
+
+        pass_obj = OwnedTicket.objects.create(
+            user=request.user, event=event, option=option, quantity=quantity,
+            kind='ticket', price=option.price, currency=event.currency,
+            status='issued', holder_name=request.user.full_name,
+            confirmation_code=f'VEN-{uuid.uuid4().hex[:10].upper()}',
+        )
+
+    amount_cents = int(round(float(option.price) * quantity * 100))
+    destination = getattr(event.venue, 'stripe_account_id', '') or None
+    intent = payments.create_intent(
+        amount_cents, event.currency, {'pass_id': str(pass_obj.id)}, destination)
+    pass_obj.stripe_payment_intent = intent['id']
+    pass_obj.save(update_fields=['stripe_payment_intent'])
+
+    return Response(
+        {
+            'client_secret': intent['client_secret'],
+            'pass': OwnedTicketSerializer(pass_obj, context={'request': request}).data,
+        },
+        status=201,
     )

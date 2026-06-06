@@ -31,6 +31,9 @@ class Profile(models.Model):
     instagram = models.CharField(max_length=120, blank=True)
     website = models.URLField(blank=True)
 
+    # Stripe Connect account for routing ticket payouts to this venue/host.
+    stripe_account_id = models.CharField(max_length=64, blank=True)
+
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         null=True,

@@ -2,7 +2,7 @@ from rest_framework import serializers
 
 from apps.events.serializers import EventSerializer, TicketOptionSerializer
 
-from .models import OwnedTicket
+from .models import OwnedTicket, Redemption
 
 
 class OwnedTicketSerializer(serializers.ModelSerializer):
@@ -20,4 +20,17 @@ class OwnedTicketSerializer(serializers.ModelSerializer):
             'purchased_at', 'qr_payload', 'order_id',
             'kind', 'price', 'currency', 'confirmation_code',
             'holder_name', 'qr_value', 'entry_instructions',
+        )
+
+
+class RedemptionSerializer(serializers.ModelSerializer):
+    """A redeemed deal voucher — Wallet > Deals (05_VENTII_deals_CODE.ts)."""
+
+    id = serializers.CharField(read_only=True)
+
+    class Meta:
+        model = Redemption
+        fields = (
+            'id', 'deal', 'offer', 'event', 'title', 'venue', 'image',
+            'status', 'code', 'holder_name', 'redeemed_at',
         )

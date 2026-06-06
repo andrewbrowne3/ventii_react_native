@@ -52,6 +52,8 @@ class OwnedTicket(models.Model):
     # Server-signed token; '' until the backend signs it. Never fabricated client-side.
     qr_value = models.TextField(blank=True)
     entry_instructions = models.CharField(max_length=240, default='Show this pass at the door.')
+    # Stripe PaymentIntent id for paid passes (blank for free RSVPs).
+    stripe_payment_intent = models.CharField(max_length=64, blank=True)
 
     class Meta:
         ordering = ['-purchased_at']

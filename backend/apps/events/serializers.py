@@ -4,7 +4,7 @@ from apps import access
 from apps.profiles.models import Profile
 from apps.profiles.serializers import ProfileSerializer
 
-from .models import Deal, Event, TicketOption
+from .models import Deal, DealOffer, Event, TicketOption
 
 
 def _viewer_tier(context):
@@ -38,12 +38,53 @@ class TicketOptionSerializer(serializers.ModelSerializer):
         return not access.is_option_available_to(opt, _viewer_tier(self.context))
 
 
+class DealOfferSerializer(serializers.ModelSerializer):
+    id = serializers.CharField(read_only=True)
+    required_tier = serializers.SerializerMethodField()
+    cta = serializers.SerializerMethodField()
+
+    class Meta:
+        model = DealOffer
+        fields = ('id', 'title', 'image', 'limit_per_user', 'required_tier', 'cta')
+
+    def get_required_tier(self, obj):
+        return obj.required_tier or None
+
+    def get_cta(self, obj):
+        # Local import avoids an events<->tickets circular import.
+        from apps.tickets.models import Redemption
+
+        deal = obj.deal
+        deal_dict = access.deal_dict_from_model(deal)
+        offer_dict = next((o for o in deal_dict['offers'] if o['id'] == str(obj.id)), {})
+        request = self.context.get('request') if self.context else None
+        user = getattr(request, 'user', None)
+        user_count = 0
+        if user is not None and user.is_authenticated:
+            user_count = Redemption.objects.filter(
+                user=user, offer=obj, status='redeemed').count()
+        total_count = Redemption.objects.filter(deal=deal, status='redeemed').count()
+        return access.resolve_deal_cta(
+            deal_dict, offer_dict, _viewer_tier(self.context), user_count, total_count,
+        )
+
+
 class DealSerializer(serializers.ModelSerializer):
     id = serializers.CharField(read_only=True)
+    offers = DealOfferSerializer(many=True, read_only=True)
+    required_tier = serializers.SerializerMethodField()
 
     class Meta:
         model = Deal
-        fields = ('id', 'title', 'description', 'valid_until', 'redeemed')
+        # Additive: original keys (title/description/valid_until/redeemed) kept.
+        fields = (
+            'id', 'title', 'description', 'valid_until', 'redeemed',
+            'subtitle', 'venue', 'valid_from', 'required_tier', 'total_limit',
+            'success_message', 'success_image', 'offers',
+        )
+
+    def get_required_tier(self, obj):
+        return obj.required_tier or None
 
 
 class EventSerializer(serializers.ModelSerializer):

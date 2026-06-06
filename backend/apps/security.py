@@ -10,9 +10,21 @@ The scan/check-in flow that consumes verify_qr lands in Phase 2.
 """
 import os
 
+from django.contrib.auth.hashers import check_password, make_password
 from django.core import signing
 
 _SALT = "ventii.pass.qr"
+
+
+# ── Staff codes (deal redemption) — hashed, constant-time verify ──────────────
+def hash_code(code: str) -> str:
+    """Hash a venue staff code for storage (never store plaintext)."""
+    return make_password(code)
+
+
+def verify_code(code: str, code_hash: str) -> bool:
+    """Constant-time check of an entered staff code against a stored hash."""
+    return bool(code) and bool(code_hash) and check_password(code, code_hash)
 
 
 def _key():

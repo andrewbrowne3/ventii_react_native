@@ -43,7 +43,7 @@ def profile_events(request, pk):
         Event.objects.filter(Q(hosts=profile) | Q(venue=profile))
         .distinct()
         .select_related('venue')
-        .prefetch_related('hosts', 'ticket_options', 'deals')
+        .prefetch_related('hosts', 'ticket_options', 'deals', 'deals__offers')
         .order_by('date', 'start_time')
     )
     paginator = PageNumberPagination()

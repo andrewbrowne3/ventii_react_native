@@ -59,7 +59,7 @@ EVENTS = [
       ('At Door', 'Door price', 45, 5, None, [])],
      []),
 
-    ('O4W Jazz & Cocktails', '@cherry-o4w', [], 4, '8:00 PM', '12:00 AM',
+    ('O4W Jazz & Cocktails', '@cherry-o4w', ['@dj-kemi'], 4, '8:00 PM', '12:00 AM',
      ['Intimate', 'Live Band', 'Date Night'], ['Jazz', 'Soul'], 15, '21+', 140, 410,
      [('GA', 'Seated entry', 20, 3, 80, ['Welcome cocktail'])],
      [('Half-price small plates', 'Before 9PM')]),
@@ -160,6 +160,18 @@ class Command(BaseCommand):
                     Deal.objects.create(event=event, title=d_title, description=d_desc)
                 if first_opt:
                     ga_options.append((event, first_opt))
+
+        # Backfill: the feed groups card decks by host (DJ), so every event needs
+        # at least one host or it falls back to its venue. Assign a DJ to any
+        # host-less event (e.g. ones created in-app). Idempotent — events that
+        # already have a host are skipped, and the assignment is deterministic.
+        host_list = list(hosts.values())
+        if host_list:
+            orphans = Event.objects.filter(hosts__isnull=True).distinct().order_by('title')
+            for i, ev in enumerate(orphans):
+                ev.hosts.add(host_list[i % len(host_list)])
+            if orphans:
+                self.stdout.write(f'Backfilled hosts for {len(orphans)} host-less event(s).')
 
         # Give the demo user a couple of tickets so the Wallet isn't empty.
         for i, (event, opt) in enumerate(ga_options[:2]):

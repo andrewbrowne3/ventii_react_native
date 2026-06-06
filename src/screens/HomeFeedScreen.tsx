@@ -49,18 +49,31 @@ const LIKE_PINK = '#F472B6';
 const TABS = ['For You', 'Following', 'Deals', 'Explore'] as const;
 type Tab = (typeof TABS)[number];
 
-function groupByPrimaryHost(events: Event[]): Event[][] {
-  const groups: Record<string, Event[]> = {};
+// One deck per host (DJ). An event with several DJs appears in EACH of their
+// decks — the feed is "hosts and their events aggregated." Events with no host
+// fall back to their venue, then to the event itself, so nothing is dropped.
+type Deck = {key: string; host: any | null; events: Event[]};
+
+function groupByHost(events: Event[]): Deck[] {
+  const decks: Record<string, Deck> = {};
   const order: string[] = [];
-  for (const e of events) {
-    const key = e.hosts?.[0]?.id ?? e.venue?.id ?? e.id;
-    if (!groups[key]) {
-      groups[key] = [];
+  const push = (key: string, host: any | null, e: Event) => {
+    if (!decks[key]) {
+      decks[key] = {key, host, events: []};
       order.push(key);
     }
-    groups[key].push(e);
+    decks[key].events.push(e);
+  };
+  for (const e of events) {
+    if (e.hosts?.length) {
+      for (const h of e.hosts) push(h.id, h, e);
+    } else if (e.venue) {
+      push(e.venue.id, e.venue, e);
+    } else {
+      push(e.id, null, e);
+    }
   }
-  return order.map((k) => groups[k]);
+  return order.map((k) => decks[k]);
 }
 
 function formatDate(iso: string): string {
@@ -120,18 +133,23 @@ const ActionButton: React.FC<{children: React.ReactNode; active?: boolean; onPre
 
 const EventCard: React.FC<{
   events: Event[];
+  host: any | null;
   savedIds: string[];
   onSave: (id: string) => void;
   onOpen: (e: Event) => void;
   t: any;
-}> = ({events, savedIds, onSave, onOpen, t}) => {
+}> = ({events, host, savedIds, onSave, onOpen, t}) => {
   const [idx, setIdx] = useState(0);
   const dragX = useSharedValue(0);
   const multi = events.length > 1;
   const active = events[idx];
 
-  const primary = active.hosts?.[0]?.display_name ?? active.venue?.display_name ?? 'Host';
-  const others = (active.hosts?.length ?? 0) - 1;
+  // Header reflects THIS deck's host (the DJ the deck is grouped under), with the
+  // active event's other hosts counted as "+N others hosting".
+  const primary = host?.display_name ?? active.hosts?.[0]?.display_name ?? active.venue?.display_name ?? 'Host';
+  const otherHosts = (active.hosts ?? []).filter((h) => h.id !== host?.id);
+  const others = otherHosts.length;
+  const orderedHosts = host && active.hosts?.some((h) => h.id === host.id) ? [host, ...otherHosts] : active.hosts ?? [];
   const hostLabel =
     others > 0 ? `${primary} + ${others} other${others > 1 ? 's' : ''} hosting` : `${primary} is hosting`;
   const saved = savedIds.includes(active.id);
@@ -185,7 +203,7 @@ const EventCard: React.FC<{
       <View style={[styles.card, {backgroundColor: t.bg.secondary, borderColor: t.border.subtle}]}>
         {/* Header — reads the active event */}
         <View style={styles.header}>
-          {active.hosts?.length > 0 && <HostStack hosts={active.hosts} size={28} showLabel={false} />}
+          {orderedHosts.length > 0 && <HostStack hosts={orderedHosts} size={28} showLabel={false} />}
           <Text style={{flex: 1, color: t.text.secondary, fontSize: 12.5, fontWeight: '500'}} numberOfLines={2}>
             {hostLabel}
           </Text>
@@ -309,7 +327,7 @@ export const HomeFeedScreen: React.FC = () => {
       : tab === 'Following'
       ? []
       : events;
-  const groups = groupByPrimaryHost(base);
+  const groups = groupByHost(base);
 
   return (
     <SafeAreaView style={[styles.container, {backgroundColor: t.bg.primary}]} edges={['top']}>
@@ -340,7 +358,7 @@ export const HomeFeedScreen: React.FC = () => {
       ) : (
         <FlatList
           data={groups}
-          keyExtractor={(g) => g[0].id}
+          keyExtractor={(g) => g.key}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{paddingTop: 6, paddingBottom: 28}}
           ListEmptyComponent={
@@ -350,7 +368,8 @@ export const HomeFeedScreen: React.FC = () => {
           }
           renderItem={({item: group}) => (
             <EventCard
-              events={group}
+              events={group.events}
+              host={group.host}
               savedIds={savedIds}
               onSave={(id) => dispatch(toggleSaved(id))}
               onOpen={(e) => nav.navigate('EventDetail', {event: e})}

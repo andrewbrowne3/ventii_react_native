@@ -1,0 +1,25 @@
+# Production stack for ventii.andrewbrowne.org
+# Backend only — TLS, port 80/443, and /static/ are served by the host's
+# system nginx (see /etc/nginx/sites-enabled/ventii.andrewbrowne.org) and
+# certs are issued + auto-renewed by the host's certbot.
+#
+# Uses host networking so the container is reachable on 127.0.0.1:8020
+# (matches the deployment pattern in ~/projects/thestemcenter-deployment).
+services:
+  backend:
+    build:
+      context: ./backend
+      network: host
+    container_name: ventii-backend
+    network_mode: host
+    entrypoint: ["./entrypoint.prod.sh"]
+    command: ["gunicorn", "config.wsgi:application", "--bind", "127.0.0.1:8020", "--workers", "3", "--timeout", "60"]
+    env_file:
+      - ./backend/.env
+    volumes:
+      - backend-data:/app/data           # SQLite db persists across rebuilds
+      - /srv/ventii/static:/app/staticfiles  # host nginx serves this directly
+    restart: unless-stopped
+
+volumes:
+  backend-data:

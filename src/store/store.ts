@@ -7,8 +7,9 @@ import auth from './slices/authSlice';
 import theme from './slices/themeSlice';
 import feed from './slices/feedSlice';
 import wallet from './slices/walletSlice';
+import social from './slices/socialSlice';
 
-const rootReducer = combineReducers({auth, theme, feed, wallet});
+const rootReducer = combineReducers({auth, theme, feed, wallet, social});
 
 // v1 relaunches the app on the new light frosted direction, so reset any
 // theme persisted by the previous dark build to the new default.
@@ -20,7 +21,7 @@ const persistConfig = {
   key: 'root',
   version: 1,
   storage: AsyncStorage,
-  whitelist: ['auth', 'theme'], // only persist auth + theme
+  whitelist: ['auth', 'theme', 'social'], // persist auth + theme + follows
   migrate: createMigrate(migrations),
 };
 

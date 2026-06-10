@@ -11,6 +11,8 @@ import {AppDispatch, RootState} from '../store/store';
 import {useTheme} from '../hooks/useTheme';
 import {Pill} from '../components/Pill';
 import {HostStack} from '../components/HostStack';
+import AmbientBackground from '../components/AmbientBackground';
+import GlassView from '../components/GlassView';
 import {CommitCTA, Deal, DealOffer, TicketOption} from '../types';
 import {rsvpToEvent, checkoutEvent, redeemDeal} from '../services/api';
 import {fetchTickets} from '../store/slices/walletSlice';
@@ -135,7 +137,7 @@ export const EventDetailScreen: React.FC = () => {
   };
 
   return (
-    <View style={[styles.container, {backgroundColor: t.bg.primary}]}>
+    <AmbientBackground style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false} bounces>
         {/* Cinematic hero */}
         <View style={styles.heroContainer}>
@@ -182,7 +184,7 @@ export const EventDetailScreen: React.FC = () => {
         </View>
 
         {/* Tab strip */}
-        <View style={[styles.tabStrip, {backgroundColor: t.bg.primary, borderBottomColor: t.border.subtle}]}>
+        <View style={[styles.tabStrip, {borderBottomColor: t.border.subtle}]}>
           {TABS.map((label) => {
             const active = tab === label;
             return (
@@ -207,7 +209,13 @@ export const EventDetailScreen: React.FC = () => {
 
         {/* Tab content */}
         <View style={{padding: 20, paddingBottom: 120}}>
-          {tab === 'Details' && <DetailsTab event={event} t={t} />}
+          {tab === 'Details' && (
+            <DetailsTab
+              event={event}
+              t={t}
+              onOpenProfile={(p: any) => nav.navigate('PublicProfile', {profile: p})}
+            />
+          )}
           {tab === 'Vibe' && <VibeTab event={event} t={t} />}
           {tab === 'Ticket' && <TicketTab event={event} t={t} onBuy={onBuy} busy={busy} />}
           {tab === 'Deal' && <DealTab event={event} t={t} onRedeem={(deal, offer) => setRedeemTarget({deal, offer})} />}
@@ -215,8 +223,10 @@ export const EventDetailScreen: React.FC = () => {
         </View>
       </ScrollView>
 
-      {/* Bottom CTA bar */}
-      <SafeAreaView edges={['bottom']} style={[styles.ctaBar, {backgroundColor: t.bg.elevated, borderTopColor: t.border.subtle}]}>
+      {/* Bottom CTA bar — frosted glass over the ambient orbs */}
+      <View style={styles.ctaBarWrap}>
+      <GlassView variant="overlay">
+      <SafeAreaView edges={['bottom']} style={styles.ctaBar}>
         <View style={{flex: 1}}>
           {event.ticket_options.length > 0 ? (
             <>
@@ -251,6 +261,8 @@ export const EventDetailScreen: React.FC = () => {
           )}
         </TouchableOpacity>
       </SafeAreaView>
+      </GlassView>
+      </View>
 
       <StaffCodeModal
         target={redeemTarget}
@@ -259,13 +271,17 @@ export const EventDetailScreen: React.FC = () => {
         onClose={() => setRedeemTarget(null)}
         onSubmit={onRedeem}
       />
-    </View>
+    </AmbientBackground>
   );
 };
 
-const DetailsTab: React.FC<{event: any; t: any}> = ({event, t}) => (
+const DetailsTab: React.FC<{event: any; t: any; onOpenProfile: (p: any) => void}> = ({event, t, onOpenProfile}) => (
   <View style={{gap: 18}}>
-    <HostStack hosts={event.hosts} size={32} />
+    <Pressable
+      onPress={() => event.hosts?.[0] && onOpenProfile(event.hosts[0])}
+      disabled={!event.hosts?.length}>
+      <HostStack hosts={event.hosts} size={32} />
+    </Pressable>
     <Text style={{color: t.text.secondary, fontSize: 15, lineHeight: 22}}>
       {event.description}
     </Text>
@@ -321,15 +337,8 @@ const TicketTab: React.FC<{event: any; t: any; onBuy: (o: TicketOption) => void;
       </Text>
     ) : (
       event.ticket_options.map((opt: TicketOption) => (
-        <View
-          key={opt.id}
-          style={{
-            backgroundColor: t.bg.secondary,
-            borderRadius: 16,
-            padding: 16,
-            borderWidth: 1,
-            borderColor: t.border.subtle,
-          }}>
+        <GlassView key={opt.id} variant="panel" radius={16}>
+        <View style={{padding: 16}}>
           <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start'}}>
             <View style={{flex: 1}}>
               <Text style={{color: t.text.primary, fontSize: 17, fontWeight: '700'}}>{opt.name}</Text>
@@ -366,6 +375,7 @@ const TicketTab: React.FC<{event: any; t: any; onBuy: (o: TicketOption) => void;
             </Text>
           </TouchableOpacity>
         </View>
+        </GlassView>
       ))
     )}
   </View>
@@ -555,15 +565,16 @@ const styles = StyleSheet.create({
     height: 2.4,
     borderRadius: 1,
   },
-  ctaBar: {
+  ctaBarWrap: {
     position: 'absolute',
     bottom: 0, left: 0, right: 0,
+  },
+  ctaBar: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingTop: 14,
     paddingBottom: 8,
-    borderTopWidth: StyleSheet.hairlineWidth,
     gap: 14,
   },
   cta: {

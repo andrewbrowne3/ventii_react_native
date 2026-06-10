@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {useCallback} from 'react';
 import {View, Text, Image, Dimensions, StyleSheet, Pressable} from 'react-native';
 import {GestureDetector, Gesture} from 'react-native-gesture-handler';
 import Animated, {
@@ -9,6 +9,7 @@ import Animated, {
   interpolate,
   Extrapolation,
 } from 'react-native-reanimated';
+import type {StyleProp, ViewStyle} from 'react-native';
 import {Event} from '../types';
 import {useTheme} from '../hooks/useTheme';
 import {Pill} from './Pill';
@@ -18,6 +19,12 @@ const {width: W, height: H} = Dimensions.get('window');
 const CARD_W = W - 32;
 const CARD_H = H * 0.66;
 const SWIPE_THRESHOLD = W * 0.25;
+// A flick faster than this commits the swipe even before the distance
+// threshold — matches how Tinder-style decks are expected to feel.
+const FLING_VELOCITY = 800;
+// Critically-damped, no overshoot: the card leaves the screen and stays gone.
+const EXIT_SPRING = {damping: 30, stiffness: 220, overshootClamping: true} as const;
+const SNAP_SPRING = {damping: 20, stiffness: 190} as const;
 
 interface Props {
   events: Event[];
@@ -34,33 +41,68 @@ export const SwipeDeck: React.FC<Props> = ({events, topIndex, onSwipe, onCardTap
   const x = useSharedValue(0);
   const y = useSharedValue(0);
 
+  // Runs on the JS thread once the exit animation has fully finished:
+  // advance the deck, then reset the (now invisible) card position. The next
+  // card is already rendered underneath at full size, so the swap is seamless.
+  const finishSwipe = useCallback(
+    (dir: 'left' | 'right' | 'up') => {
+      onSwipe(dir);
+      x.value = 0;
+      y.value = 0;
+    },
+    [onSwipe, x, y],
+  );
+
   const gesture = Gesture.Pan()
+    // Don't capture the gesture until the finger has clearly moved — keeps
+    // taps crisp and stops micro-jitter on press.
+    .activeOffsetX([-12, 12])
+    .activeOffsetY([-12, 12])
     .onChange((e) => {
       x.value = e.translationX;
       y.value = e.translationY;
     })
-    .onEnd(() => {
+    .onEnd((e) => {
       const absX = Math.abs(x.value);
       const absY = Math.abs(y.value);
-      const isUp = y.value < -SWIPE_THRESHOLD && absY > absX;
-      const isRight = x.value > SWIPE_THRESHOLD && !isUp;
-      const isLeft = x.value < -SWIPE_THRESHOLD && !isUp;
+      const flungX = Math.abs(e.velocityX) > FLING_VELOCITY;
+      const flungUp = e.velocityY < -FLING_VELOCITY;
+      const isUp = (y.value < -SWIPE_THRESHOLD || flungUp) && absY > absX;
+      const isRight =
+        (x.value > SWIPE_THRESHOLD || (flungX && e.velocityX > 0)) && !isUp;
+      const isLeft =
+        (x.value < -SWIPE_THRESHOLD || (flungX && e.velocityX < 0)) && !isUp;
 
-      if (isRight) {
-        x.value = withSpring(W * 1.5, {damping: 18, stiffness: 110});
-        runOnJS(onSwipe)('right');
-        x.value = 0; y.value = 0;
-      } else if (isLeft) {
-        x.value = withSpring(-W * 1.5, {damping: 18, stiffness: 110});
-        runOnJS(onSwipe)('left');
-        x.value = 0; y.value = 0;
+      if (isRight || isLeft) {
+        const dir: 'left' | 'right' = isRight ? 'right' : 'left';
+        // Carry the finger's velocity into the exit so the card keeps the
+        // momentum it was thrown with; drift y along its current trajectory.
+        x.value = withSpring(
+          isRight ? W * 1.4 : -W * 1.4,
+          {...EXIT_SPRING, velocity: e.velocityX},
+          (finished) => {
+            if (finished) runOnJS(finishSwipe)(dir);
+          },
+        );
+        y.value = withSpring(y.value + e.velocityY * 0.08, {
+          ...EXIT_SPRING,
+          velocity: e.velocityY,
+        });
       } else if (isUp) {
-        y.value = withSpring(-H * 1.2, {damping: 18, stiffness: 110});
-        runOnJS(onSwipe)('up');
-        x.value = 0; y.value = 0;
+        y.value = withSpring(
+          -H * 1.1,
+          {...EXIT_SPRING, velocity: e.velocityY},
+          (finished) => {
+            if (finished) runOnJS(finishSwipe)('up');
+          },
+        );
+        x.value = withSpring(x.value + e.velocityX * 0.08, {
+          ...EXIT_SPRING,
+          velocity: e.velocityX,
+        });
       } else {
-        x.value = withSpring(0, {damping: 16});
-        y.value = withSpring(0, {damping: 16});
+        x.value = withSpring(0, {...SNAP_SPRING, velocity: e.velocityX});
+        y.value = withSpring(0, {...SNAP_SPRING, velocity: e.velocityY});
       }
     });
 
@@ -85,6 +127,19 @@ export const SwipeDeck: React.FC<Props> = ({events, topIndex, onSwipe, onCardTap
     opacity: interpolate(y.value, [-H * 0.3, -40, 0], [1, 0, 0], Extrapolation.CLAMP),
   }));
 
+  // The card behind scales/fades up in lockstep with the drag, so by the time
+  // the top card exits, the next one is already at full size — no pop.
+  const backStyle = useAnimatedStyle(() => {
+    const p = Math.min(
+      1,
+      (Math.abs(x.value) + Math.abs(y.value)) / SWIPE_THRESHOLD,
+    );
+    return {
+      transform: [{scale: 0.95 + 0.05 * p}, {translateY: 8 - 8 * p}],
+      opacity: 0.6 + 0.4 * p,
+    };
+  });
+
   if (!topEvent) {
     return (
       <View style={[styles.emptyCard, {backgroundColor: t.bg.secondary}]}>
@@ -100,7 +155,7 @@ export const SwipeDeck: React.FC<Props> = ({events, topIndex, onSwipe, onCardTap
 
   return (
     <View style={styles.container}>
-      {nextEvent && <CardBack event={nextEvent} t={t} />}
+      {nextEvent && <CardBack event={nextEvent} t={t} animStyle={backStyle} />}
       <GestureDetector gesture={gesture}>
         <Animated.View style={[styles.card, {backgroundColor: t.bg.secondary}, topStyle]}>
           <Pressable onPress={() => onCardTap(topEvent)} style={{flex: 1}}>
@@ -161,20 +216,20 @@ export const SwipeDeck: React.FC<Props> = ({events, topIndex, onSwipe, onCardTap
   );
 };
 
-const CardBack: React.FC<{event: Event; t: any}> = ({event, t}) => (
-  <View
+const CardBack: React.FC<{
+  event: Event;
+  t: any;
+  animStyle?: StyleProp<ViewStyle>;
+}> = ({event, t, animStyle}) => (
+  <Animated.View
     style={[
       styles.card,
-      {
-        backgroundColor: t.bg.secondary,
-        position: 'absolute',
-        transform: [{scale: 0.95}, {translateY: 8}],
-        opacity: 0.6,
-      },
+      {backgroundColor: t.bg.secondary, position: 'absolute'},
+      animStyle,
     ]}>
     <Image source={{uri: event.flyer_url}} style={styles.flyer} />
     <View style={styles.overlay} />
-  </View>
+  </Animated.View>
 );
 
 const styles = StyleSheet.create({

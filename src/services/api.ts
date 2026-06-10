@@ -136,3 +136,41 @@ export async function scanPass(qrValue: string) {
   const res = await api.post('/api/scan/', {qr_value: qrValue});
   return res.data;
 }
+
+// ───── profiles ────────────────────────────────────────────────────────────
+
+/** All public profiles (places, talent, communities, brands). */
+export async function fetchProfiles() {
+  const res = await api.get('/api/profiles/');
+  return unwrapList(res.data);
+}
+
+/** A single public profile. */
+export async function fetchProfile(profileId: string) {
+  const res = await api.get(`/api/profiles/${profileId}/`);
+  return res.data;
+}
+
+/** Events hosted by / at a profile. */
+export async function fetchProfileEvents(profileId: string) {
+  const res = await api.get(`/api/profiles/${profileId}/events/`);
+  return unwrapList(res.data);
+}
+
+/**
+ * Follow/unfollow — best-effort: the UI keeps optimistic local state and this
+ * syncs the server when the endpoint exists (404s are swallowed by callers).
+ */
+export async function followProfile(profileId: string, follow: boolean) {
+  const res = await api.post(`/api/profiles/${profileId}/follow/`, {follow});
+  return res.data;
+}
+
+/** Booking request for talent/place profiles (code-complete; backend pending). */
+export async function requestBooking(
+  profileId: string,
+  payload: {date?: string; message: string},
+) {
+  const res = await api.post(`/api/profiles/${profileId}/booking-requests/`, payload);
+  return res.data;
+}

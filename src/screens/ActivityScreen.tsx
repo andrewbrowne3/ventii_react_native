@@ -36,8 +36,7 @@ export const ActivityScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={[styles.container, {backgroundColor: t.bg.primary}]} edges={['top']}>
-      <View style={styles.header}>
-        <Text style={[styles.title, {color: t.text.primary}]}>Activity</Text>
+      <View style={[styles.header, {justifyContent: 'flex-end'}]}>
         <Pressable
           onPress={() => nav.navigate('Wallet')}
           style={[styles.walletBtn, {backgroundColor: t.bg.secondary, borderColor: t.border.subtle}]}>
@@ -120,7 +119,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20, paddingTop: 4, paddingBottom: 12,
   },
-  title: {fontSize: 32, fontWeight: '800', letterSpacing: -0.5},
   walletBtn: {
     width: 44, height: 44, borderRadius: 22,
     alignItems: 'center', justifyContent: 'center',

@@ -20,6 +20,8 @@ import {EventDetailScreen} from '../screens/EventDetailScreen';
 import {WalletScreen} from '../screens/WalletScreen';
 import {TicketDetailScreen} from '../screens/TicketDetailScreen';
 import {SettingsScreen} from '../screens/SettingsScreen';
+import {PublicProfileScreen} from '../screens/PublicProfileScreen';
+import {OnboardingScreen} from '../screens/OnboardingScreen';
 import {CreateEventScreen} from '../screens/CreateEventScreen';
 import {HostScanScreen} from '../screens/HostScanScreen';
 
@@ -116,7 +118,10 @@ export const AppNavigator: React.FC = () => {
       }}>
       <RootStack.Navigator screenOptions={{headerShown: false}}>
         {!isAuthenticated ? (
-          <RootStack.Screen name="Auth" component={LoginScreen} />
+          <>
+            <RootStack.Screen name="Auth" component={LoginScreen} />
+            <RootStack.Screen name="Onboarding" component={OnboardingScreen} />
+          </>
         ) : (
           <>
             <RootStack.Screen name="Main" component={MainTabs} />
@@ -132,6 +137,11 @@ export const AppNavigator: React.FC = () => {
               options={{presentation: 'modal'}}
             />
             <RootStack.Screen name="TicketDetail" component={TicketDetailScreen} />
+            <RootStack.Screen
+              name="PublicProfile"
+              component={PublicProfileScreen}
+              options={{presentation: 'card'}}
+            />
             <RootStack.Screen name="HostScan" component={HostScanScreen} options={{presentation: 'card'}} />
             <RootStack.Screen
               name="Settings"

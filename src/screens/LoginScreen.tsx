@@ -4,12 +4,14 @@ import {
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useDispatch, useSelector} from 'react-redux';
+import {useNavigation} from '@react-navigation/native';
 import {useTheme} from '../hooks/useTheme';
 import {RootState, AppDispatch} from '../store/store';
 import {loginUser} from '../store/slices/authSlice';
 
 export const LoginScreen: React.FC = () => {
   const t = useTheme();
+  const nav = useNavigation<any>();
   const dispatch = useDispatch<AppDispatch>();
   const isLoading = useSelector((s: RootState) => s.auth.isLoading);
   const error = useSelector((s: RootState) => s.auth.error);
@@ -72,6 +74,12 @@ export const LoginScreen: React.FC = () => {
                   Sign In
                 </Text>
             }
+          </Pressable>
+
+          <Pressable onPress={() => nav.navigate('Onboarding')} style={{marginTop: 18}}>
+            <Text style={{color: t.text.secondary, fontSize: 13.5, textAlign: 'center', fontWeight: '600'}}>
+              New here? <Text style={{color: t.text.primary, fontWeight: '700'}}>Create an account</Text>
+            </Text>
           </Pressable>
 
           <Text style={{color: t.text.tertiary, fontSize: 12, textAlign: 'center', marginTop: 14}}>

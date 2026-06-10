@@ -45,7 +45,9 @@ import GlassView from '../components/GlassView';
 
 const {width: W} = Dimensions.get('window');
 const CARD_W = W - 32;
-const SWIPE_THRESHOLD = 55;
+// Carousel constants per EVENT_CARD_CAROUSEL_SPEC.md
+const SWIPE_THRESHOLD = 70; // px on release that commits a card change
+const EDGE_DAMPING = 0.35; // rubber-band factor when dragging past the ends
 const LIKE_PINK = '#F472B6';
 
 const TABS = ['For You', 'Following', 'Deals', 'Explore'] as const;
@@ -138,8 +140,9 @@ const EventCard: React.FC<{
   host: any | null;
   onSave: (id: string) => void;
   onOpen: (e: Event) => void;
+  onOpenProfile: (p: any) => void;
   t: any;
-}> = React.memo(({events, host, onSave, onOpen, t}) => {
+}> = React.memo(({events, host, onSave, onOpen, onOpenProfile, t}) => {
   const [idx, setIdx] = useState(0);
   const dragX = useSharedValue(0);
   // Which side the incoming flyer enters from on the next index change:
@@ -157,22 +160,39 @@ const EventCard: React.FC<{
     if (idx !== safeIdx) setIdx(safeIdx);
   }, [idx, safeIdx]);
 
-  const advance = useCallback((nextIdx: number, dir: number) => {
-    pendingDir.current = dir;
-    setIdx(nextIdx);
-  }, []);
+  const advance = useCallback(
+    (nextIdx: number, dir: number) => {
+      // Park the (about-to-swap) card on the incoming side BEFORE React
+      // re-renders, so no frame ever paints the new image at the old offset.
+      dragX.value = dir > 0 ? W : -W;
+      pendingDir.current = dir;
+      setIdx(nextIdx);
+    },
+    [dragX],
+  );
 
-  // Spring the incoming card in AFTER React has swapped to the new image, so the
-  // entrance animates the new flyer. Doing this inline in the gesture callback
-  // raced the async setIdx and briefly sprang the OLD image back in (the flash).
+  // Spring the incoming card in AFTER React has swapped to the new image, so
+  // the entrance animates the new flyer. The image element itself is keyed by
+  // event id (below) — swapping `source` on a live <Image> shows the OLD
+  // texture for a frame or two while the new one attaches, which read as a
+  // flash of the previous flyer.
   useEffect(() => {
     if (pendingDir.current === 0) return;
-    const from = pendingDir.current > 0 ? W : -W;
     pendingDir.current = 0;
-    dragX.value = from;
     dragX.value = withSpring(0, {damping: 20, stiffness: 170});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idx]);
+
+  // Warm neighbor flyers so a committed swipe shows an already-decoded image.
+  // Forward peeks are pre-mounted; the backward neighbor is not, so it matters
+  // most there.
+  useEffect(() => {
+    if (!multi) return;
+    [safeIdx - 1, safeIdx + 1, safeIdx + 2].forEach((j) => {
+      const url = events[j]?.flyer_url;
+      if (url) Image.prefetch(url).catch(() => {});
+    });
+  }, [safeIdx, events, multi]);
 
   // Header reflects THIS deck's host (the DJ the deck is grouped under), with the
   // active event's other hosts counted as "+N others hosting".
@@ -192,7 +212,12 @@ const EventCard: React.FC<{
     .activeOffsetX([-10, 10])
     .failOffsetY([-16, 16])
     .onChange((e) => {
-      dragX.value = e.translationX;
+      // Edge resistance (spec §3.3): rubber-band when dragging right on the
+      // first card or left on the last — there's nothing beyond the end.
+      const atStart = safeIdx === 0 && e.translationX > 0;
+      const atEnd = safeIdx === events.length - 1 && e.translationX < 0;
+      dragX.value =
+        atStart || atEnd ? e.translationX * EDGE_DAMPING : e.translationX;
     })
     .onEnd((e) => {
       const fling = Math.abs(e.velocityX) > 550;
@@ -222,12 +247,19 @@ const EventCard: React.FC<{
   return (
     <View style={styles.cardWrap}>
       <GlassView variant="card" radius={24} style={styles.card}>
-        {/* Header — reads the active event */}
+        {/* Header — reads the active event; tapping it opens the host profile */}
         <View style={styles.header}>
-          {orderedHosts.length > 0 && <HostStack hosts={orderedHosts} size={28} showLabel={false} />}
-          <Text style={{flex: 1, color: t.text.secondary, fontSize: 12.5, fontWeight: '500'}} numberOfLines={2}>
-            {hostLabel}
-          </Text>
+          <Pressable
+            onPress={() => {
+              const target = host ?? orderedHosts[0];
+              if (target) onOpenProfile(target);
+            }}
+            style={{flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1}}>
+            {orderedHosts.length > 0 && <HostStack hosts={orderedHosts} size={28} showLabel={false} />}
+            <Text style={{flex: 1, color: t.text.secondary, fontSize: 12.5, fontWeight: '500'}} numberOfLines={2}>
+              {hostLabel}
+            </Text>
+          </Pressable>
           <View style={{flexDirection: 'row', alignItems: 'center', gap: 8}}>
             {multi && <Text style={{color: t.text.tertiary, fontSize: 12, fontWeight: '600'}}>{safeIdx + 1} of {events.length}</Text>}
             <MoreHorizontal size={18} color={t.text.tertiary} />
@@ -256,11 +288,34 @@ const EventCard: React.FC<{
           <GestureDetector gesture={gesture}>
             <Animated.View style={[StyleSheet.absoluteFill, activeImgStyle]}>
               <Pressable onPress={() => onOpen(active)} style={{flex: 1}}>
-                <Image source={{uri: active.flyer_url}} resizeMode="cover" style={[styles.flyerImg, {backgroundColor: t.bg.elevated}]} />
+                <Image
+                  key={active.id}
+                  source={{uri: active.flyer_url}}
+                  resizeMode="cover"
+                  style={[styles.flyerImg, {backgroundColor: t.bg.elevated}]}
+                />
                 <View style={styles.flyerFade} />
               </Pressable>
             </Animated.View>
           </GestureDetector>
+          {/* Carousel dots (spec §5) — only on multi-event decks */}
+          {multi && (
+            <View pointerEvents="none" style={styles.dotsRow}>
+              {events.map((_, i) => (
+                <View
+                  key={i}
+                  style={[
+                    styles.dot,
+                    {
+                      backgroundColor:
+                        i === safeIdx ? '#FFFFFF' : 'rgba(255,255,255,0.45)',
+                      width: i === safeIdx ? 16 : 5,
+                    },
+                  ]}
+                />
+              ))}
+            </View>
+          )}
         </View>
 
         {/* Footer — reads the active event */}
@@ -275,13 +330,15 @@ const EventCard: React.FC<{
                 {[formatDate(active.date), active.start_time, active.venue?.display_name].filter(Boolean).join(' · ')}
               </Text>
             </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap: 6, alignItems: 'center'}}>
+            {/* Wrapping row — pills flow to a second line instead of being
+                clipped mid-letter at the card edge. */}
+            <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 6, alignItems: 'center'}}>
               {active.deals?.length > 0 && <DealPill t={t} />}
               {active.ticket_options?.length > 0 && <TicketPill t={t} />}
               {active.vibe_tags?.slice(0, 3).map((tag) => (
                 <TagPill key={tag} label={tag} t={t} />
               ))}
-            </ScrollView>
+            </View>
             {!!active.description && (
               <Text style={{color: t.text.tertiary, fontSize: 12.5, marginTop: 10}} numberOfLines={1}>
                 {active.description}
@@ -313,15 +370,39 @@ const FeedTopNav: React.FC<{tab: Tab; setTab: (t: Tab) => void; t: any}> = ({tab
   <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.topNav}>
     {TABS.map((label) => {
       const active = tab === label;
+      // "Deals" always wears the deal green and glows — same accent as the
+      // Deal pill on event cards.
+      const isDeals = label === 'Deals';
+      const pillStyle = isDeals
+        ? {
+            backgroundColor: active ? t.accents.deal.bg : 'transparent',
+            borderColor: t.accents.deal.base,
+            shadowColor: t.accents.deal.base,
+            shadowOpacity: active ? 0.6 : 0.35,
+            shadowRadius: active ? 10 : 6,
+            shadowOffset: {width: 0, height: 0},
+            elevation: active ? 6 : 3,
+          }
+        : {
+            backgroundColor: active ? t.bg.elevated : 'transparent',
+            borderColor: active ? t.border.subtle : 'transparent',
+          };
       return (
         <Pressable
           key={label}
           onPress={() => setTab(label)}
-          style={[
-            styles.navPill,
-            {backgroundColor: active ? t.bg.elevated : 'transparent', borderColor: active ? t.border.subtle : 'transparent'},
-          ]}>
-          <Text style={{color: active ? t.text.primary : t.text.tertiary, fontSize: 13.5, fontWeight: active ? '700' : '600'}}>
+          style={[styles.navPill, pillStyle]}>
+          <Text
+            style={{
+              color: isDeals
+                ? t.accents.deal.base
+                : active
+                ? t.text.primary
+                : t.text.tertiary,
+              fontSize: 13.5,
+              lineHeight: 18,
+              fontWeight: active || isDeals ? '700' : '600',
+            }}>
             {label}
           </Text>
         </Pressable>
@@ -356,6 +437,10 @@ export const HomeFeedScreen: React.FC = () => {
   const onSave = useCallback((id: string) => dispatch(toggleSaved(id)), [dispatch]);
   const onOpen = useCallback(
     (e: Event) => nav.navigate('EventDetail', {event: e}),
+    [nav],
+  );
+  const onOpenProfile = useCallback(
+    (p: any) => nav.navigate('PublicProfile', {profile: p}),
     [nav],
   );
 
@@ -393,6 +478,7 @@ export const HomeFeedScreen: React.FC = () => {
               host={group.host}
               onSave={onSave}
               onOpen={onOpen}
+              onOpenProfile={onOpenProfile}
               t={t}
             />
           )}
@@ -405,8 +491,8 @@ export const HomeFeedScreen: React.FC = () => {
 
 const styles = StyleSheet.create({
   container: {flex: 1},
-  topNav: {paddingHorizontal: 16, paddingBottom: 10, gap: 8},
-  navPill: {paddingVertical: 7, paddingHorizontal: 16, borderRadius: 100, borderWidth: 1},
+  topNav: {paddingHorizontal: 16, paddingTop: 6, paddingBottom: 12, gap: 8, alignItems: 'center'},
+  navPill: {paddingVertical: 7, paddingHorizontal: 16, borderRadius: 100, borderWidth: 1, justifyContent: 'center'},
 
   cardWrap: {alignItems: 'center', marginBottom: 18, paddingHorizontal: 16},
   card: {
@@ -424,6 +510,17 @@ const styles = StyleSheet.create({
   flyerArea: {marginHorizontal: 12, aspectRatio: 3 / 4, position: 'relative'},
   flyerImg: {width: '100%', height: '100%', borderRadius: 18},
   flyerFade: {position: 'absolute', left: 0, right: 0, bottom: 0, height: '30%', backgroundColor: 'rgba(0,0,0,0.26)', borderBottomLeftRadius: 18, borderBottomRightRadius: 18},
+  dotsRow: {
+    position: 'absolute',
+    bottom: 10,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 5,
+  },
+  dot: {height: 5, borderRadius: 2.5},
   footer: {flexDirection: 'row', alignItems: 'flex-start', gap: 12, paddingHorizontal: 16, paddingTop: 14, paddingBottom: 16},
   title: {fontSize: 18, fontWeight: '800', letterSpacing: -0.5, lineHeight: 22, marginBottom: 8},
   metaTile: {

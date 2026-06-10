@@ -11,8 +11,8 @@ from apps.profiles import views as profiles
 from apps.tickets import views as tickets
 
 auth_patterns = [
-    # Public self-registration is intentionally NOT routed — accounts are
-    # created via Django admin only. (accounts.register stays in code, dormant.)
+    # Self-registration enabled for the mobile onboarding flow (was admin-only).
+    path('register/', accounts.register, name='register'),
     path('login/', accounts.login, name='login'),
     path('logout/', accounts.logout, name='logout'),
     path('token/refresh/', accounts.token_refresh, name='token_refresh'),

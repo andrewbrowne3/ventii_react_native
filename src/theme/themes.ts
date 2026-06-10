@@ -77,12 +77,14 @@ export const darkTheme: Theme = {
     strong: 'rgba(255, 255, 255, 0.18)',
   },
   glass: {
-    fill: 'rgba(28, 28, 38, 0.55)',
-    fillStrong: 'rgba(28, 28, 38, 0.78)',
-    border: 'rgba(255, 255, 255, 0.12)',
+    // Tints stay whisper-thin: the native iOS material blur does the real
+    // frosting (blur + saturation), the wash is only for text legibility.
+    fill: 'rgba(22, 22, 32, 0.3)',
+    fillStrong: 'rgba(22, 22, 32, 0.52)',
+    border: 'rgba(255, 255, 255, 0.14)',
     shadowColor: '#000000',
-    blurType: 'dark',
-    blurAmount: 18,
+    blurType: 'thinMaterialDark',
+    blurAmount: 25,
   },
   accents: {
     aurora: {base: '#E8E8F0', tint: '#FFFFFF', deep: '#B8B8C8', bg: 'rgba(232, 232, 240, 0.12)'},
@@ -119,12 +121,12 @@ export const lightTheme: Theme = {
     strong: 'rgba(10, 10, 15, 0.18)',
   },
   glass: {
-    fill: 'rgba(255, 255, 255, 0.36)',
-    fillStrong: 'rgba(255, 255, 255, 0.6)',
+    fill: 'rgba(255, 255, 255, 0.18)',
+    fillStrong: 'rgba(255, 255, 255, 0.4)',
     border: 'rgba(255, 255, 255, 0.9)',
     shadowColor: '#6B6B85',
-    blurType: 'light',
-    blurAmount: 16,
+    blurType: 'thinMaterialLight',
+    blurAmount: 25,
   },
   accents: {
     aurora: {base: '#2E2E40', tint: '#48485A', deep: '#0A0A0F', bg: 'rgba(46, 46, 64, 0.08)'},

@@ -6,6 +6,8 @@ import {useNavigation} from '@react-navigation/native';
 import {RootState, AppDispatch} from '../store/store';
 import {useTheme} from '../hooks/useTheme';
 import {Pill} from '../components/Pill';
+import AmbientBackground from '../components/AmbientBackground';
+import GlassView from '../components/GlassView';
 import {OwnedTicket} from '../types';
 import {fetchTickets} from '../store/slices/walletSlice';
 
@@ -20,7 +22,8 @@ export const WalletScreen: React.FC = () => {
   }, [dispatch]);
 
   return (
-    <SafeAreaView style={[styles.container, {backgroundColor: t.bg.primary}]} edges={['top']}>
+    <AmbientBackground>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <Text style={[styles.title, {color: t.text.primary}]}>Wallet</Text>
         <Text style={[styles.subtitle, {color: t.text.secondary}]}>
@@ -42,21 +45,15 @@ export const WalletScreen: React.FC = () => {
         }
       />
     </SafeAreaView>
+    </AmbientBackground>
   );
 };
 
 const TicketCard: React.FC<{ticket: OwnedTicket; onPress: () => void; t: any}> = ({ticket, onPress, t}) => {
   const e = ticket.event;
   return (
-    <Pressable
-      onPress={onPress}
-      style={{
-        backgroundColor: t.bg.secondary,
-        borderRadius: 22,
-        overflow: 'hidden',
-        borderWidth: 1,
-        borderColor: t.border.subtle,
-      }}>
+    <Pressable onPress={onPress}>
+      <GlassView variant="card" radius={22}>
       <View style={{flexDirection: 'row'}}>
         <Image source={{uri: e.flyer_url}} style={{width: 110, height: 130}} />
         <View style={{flex: 1, padding: 14, justifyContent: 'space-between'}}>
@@ -88,6 +85,7 @@ const TicketCard: React.FC<{ticket: OwnedTicket; onPress: () => void; t: any}> =
         <Text style={{color: t.text.tertiary, fontSize: 11, fontWeight: '600'}}>ORDER {(ticket.order_id || ticket.confirmation_code || '—').toUpperCase()}</Text>
         <Text style={{color: t.accents.aurora.base, fontSize: 12, fontWeight: '700'}}>VIEW PASS ›</Text>
       </View>
+      </GlassView>
     </Pressable>
   );
 };

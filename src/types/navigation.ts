@@ -6,6 +6,7 @@ export type AuthStackParamList = {
 
 export type RootStackParamList = {
   Auth: undefined;
+  Onboarding: undefined;
   Main: undefined;
   EventDetail: {event: Event};
   PublicProfile: {profile: Profile};

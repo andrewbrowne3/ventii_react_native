@@ -7,6 +7,10 @@ import {useTheme} from '../hooks/useTheme';
 import {RootState} from '../store/store';
 import {logoutUser} from '../store/slices/authSlice';
 import {Pill} from '../components/Pill';
+import AmbientBackground from '../components/AmbientBackground';
+import GlassView from '../components/GlassView';
+import ProfileHero from '../components/profile/ProfileHero';
+import ProfileTabStrip from '../components/profile/ProfileTabStrip';
 
 type Tab = 'Saved' | 'Going' | 'Communities' | 'About';
 
@@ -25,7 +29,8 @@ export const ProfileScreen: React.FC = () => {
   const going = events.filter((e) => tickets.some((tk) => tk.event.id === e.id));
 
   return (
-    <SafeAreaView style={[styles.container, {backgroundColor: t.bg.primary}]} edges={['top']}>
+    <AmbientBackground>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Header strip */}
         <View style={styles.topRow}>
@@ -39,25 +44,17 @@ export const ProfileScreen: React.FC = () => {
           </Pressable>
         </View>
 
-        {/* Avatar block */}
-        <View style={styles.avatarBlock}>
-          <Image
-            source={{uri: user?.profile_picture || 'https://picsum.photos/seed/demo_user/200'}}
-            style={styles.avatar}
-          />
-          <Text style={[styles.name, {color: t.text.primary}]}>
-            {user?.full_name || 'Demo User'}
-          </Text>
-          <Text style={[styles.city, {color: t.text.secondary}]}>
-            {user?.city || 'Atlanta'} · Member since 2026
-          </Text>
-
+        {/* Hero — the canonical shared block (public profiles use it too) */}
+        <ProfileHero
+          avatarUrl={user?.profile_picture || 'https://picsum.photos/seed/demo_user/200'}
+          name={user?.full_name || 'Demo User'}
+          subtitle={`${user?.city || 'Atlanta'} · Member since 2026`}>
           <View style={{flexDirection: 'row', gap: 8, marginTop: 12}}>
             <Pill label="Rooftop fan" accent="aurora" size="sm" />
             <Pill label="Afrobeats" accent="beam" size="sm" />
             <Pill label="Late nights" accent="glow" size="sm" />
           </View>
-        </View>
+        </ProfileHero>
 
         {/* Stats row */}
         <View style={styles.stats}>
@@ -67,22 +64,12 @@ export const ProfileScreen: React.FC = () => {
           <Stat n={1} label="Hosted" t={t} />
         </View>
 
-        {/* Tabs */}
-        <View style={[styles.tabStrip, {borderBottomColor: t.border.subtle}]}>
-          {tabs.map((label) => {
-            const active = tab === label;
-            return (
-              <Pressable key={label} onPress={() => setTab(label)} style={styles.tab}>
-                <Text style={{
-                  color: active ? t.text.primary : t.text.tertiary,
-                  fontWeight: active ? '700' : '500',
-                  fontSize: 13.5,
-                }}>{label}</Text>
-                {active && <View style={[styles.indicator, {backgroundColor: t.text.primary}]} />}
-              </Pressable>
-            );
-          })}
-        </View>
+        {/* Tabs — shared strip */}
+        <ProfileTabStrip
+          tabs={tabs}
+          active={tab}
+          onChange={(label) => setTab(label as Tab)}
+        />
 
         {/* Tab content */}
         <View style={{padding: 20, paddingBottom: 40}}>
@@ -93,20 +80,23 @@ export const ProfileScreen: React.FC = () => {
           ) : (
             <View style={{gap: 10}}>
               {saved.map((e) => (
-                <Pressable key={e.id} onPress={() => nav.navigate('EventDetail', {event: e})}
-                  style={[styles.row, {backgroundColor: t.bg.secondary, borderColor: t.border.subtle}]}>
-                  <Image source={{uri: e.flyer_url}} style={styles.thumb} />
-                  <View style={{flex: 1, marginLeft: 12, justifyContent: 'center'}}>
-                    <Text style={{color: t.text.tertiary, fontSize: 11, fontWeight: '700', letterSpacing: 1}}>
-                      {e.date} · {e.start_time}
-                    </Text>
-                    <Text style={{color: t.text.primary, fontSize: 15, fontWeight: '700', marginTop: 3}} numberOfLines={1}>
-                      {e.title}
-                    </Text>
-                    <Text style={{color: t.text.secondary, fontSize: 12, marginTop: 2}} numberOfLines={1}>
-                      {e.venue.display_name}
-                    </Text>
+                <Pressable key={e.id} onPress={() => nav.navigate('EventDetail', {event: e})}>
+                  <GlassView variant="panel" radius={14}>
+                  <View style={styles.row}>
+                    <Image source={{uri: e.flyer_url}} style={styles.thumb} />
+                    <View style={{flex: 1, marginLeft: 12, justifyContent: 'center'}}>
+                      <Text style={{color: t.text.tertiary, fontSize: 11, fontWeight: '700', letterSpacing: 1}}>
+                        {e.date} · {e.start_time}
+                      </Text>
+                      <Text style={{color: t.text.primary, fontSize: 15, fontWeight: '700', marginTop: 3}} numberOfLines={1}>
+                        {e.title}
+                      </Text>
+                      <Text style={{color: t.text.secondary, fontSize: 12, marginTop: 2}} numberOfLines={1}>
+                        {e.venue.display_name}
+                      </Text>
+                    </View>
                   </View>
+                  </GlassView>
                 </Pressable>
               ))}
             </View>
@@ -119,20 +109,23 @@ export const ProfileScreen: React.FC = () => {
           ) : (
             <View style={{gap: 10}}>
               {going.map((e) => (
-                <Pressable key={e.id} onPress={() => nav.navigate('EventDetail', {event: e})}
-                  style={[styles.row, {backgroundColor: t.bg.secondary, borderColor: t.border.subtle}]}>
-                  <Image source={{uri: e.flyer_url}} style={styles.thumb} />
-                  <View style={{flex: 1, marginLeft: 12, justifyContent: 'center'}}>
-                    <Text style={{color: t.accents.deal.base, fontSize: 11, fontWeight: '800', letterSpacing: 1}}>
-                      CONFIRMED
-                    </Text>
-                    <Text style={{color: t.text.primary, fontSize: 15, fontWeight: '700', marginTop: 3}} numberOfLines={1}>
-                      {e.title}
-                    </Text>
-                    <Text style={{color: t.text.secondary, fontSize: 12, marginTop: 2}} numberOfLines={1}>
-                      {e.date} · {e.venue.display_name}
-                    </Text>
+                <Pressable key={e.id} onPress={() => nav.navigate('EventDetail', {event: e})}>
+                  <GlassView variant="panel" radius={14}>
+                  <View style={styles.row}>
+                    <Image source={{uri: e.flyer_url}} style={styles.thumb} />
+                    <View style={{flex: 1, marginLeft: 12, justifyContent: 'center'}}>
+                      <Text style={{color: t.accents.deal.base, fontSize: 11, fontWeight: '800', letterSpacing: 1}}>
+                        CONFIRMED
+                      </Text>
+                      <Text style={{color: t.text.primary, fontSize: 15, fontWeight: '700', marginTop: 3}} numberOfLines={1}>
+                        {e.title}
+                      </Text>
+                      <Text style={{color: t.text.secondary, fontSize: 12, marginTop: 2}} numberOfLines={1}>
+                        {e.date} · {e.venue.display_name}
+                      </Text>
+                    </View>
                   </View>
+                  </GlassView>
                 </Pressable>
               ))}
             </View>
@@ -177,6 +170,7 @@ export const ProfileScreen: React.FC = () => {
         </View>
       </ScrollView>
     </SafeAreaView>
+    </AmbientBackground>
   );
 };
 
@@ -204,26 +198,15 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
     borderWidth: 1,
   },
-  avatarBlock: {alignItems: 'center', paddingTop: 12, paddingBottom: 20, paddingHorizontal: 20},
-  avatar: {width: 90, height: 90, borderRadius: 45, marginBottom: 14},
-  name: {fontSize: 24, fontWeight: '800', letterSpacing: -0.3},
-  city: {fontSize: 13, marginTop: 4},
   stats: {
     flexDirection: 'row',
     paddingHorizontal: 20,
     paddingBottom: 18,
     paddingTop: 4,
   },
-  tabStrip: {flexDirection: 'row', borderBottomWidth: StyleSheet.hairlineWidth},
-  tab: {flex: 1, paddingVertical: 12, alignItems: 'center'},
-  indicator: {
-    position: 'absolute', bottom: -1, left: '30%', right: '30%',
-    height: 2.4, borderRadius: 1,
-  },
   row: {
     flexDirection: 'row',
-    borderRadius: 14, padding: 8, paddingRight: 14,
-    borderWidth: 1,
+    padding: 8, paddingRight: 14,
   },
   thumb: {width: 56, height: 56, borderRadius: 10},
   logoutBtn: {

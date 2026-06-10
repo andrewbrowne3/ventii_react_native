@@ -34,6 +34,33 @@ export const loginUser = createAsyncThunk(
   },
 );
 
+// Self-registration: POST /api/auth/register/ -> {access, refresh, user}.
+// Logs the new account straight in (stores tokens) — onboarding finishes
+// authenticated, no second login step.
+export const registerUser = createAsyncThunk(
+  'auth/register',
+  async (
+    payload: {email: string; password: string; display_name: string; city?: string},
+    {rejectWithValue},
+  ) => {
+    try {
+      const res = await api.post(API_CONFIG.ENDPOINTS.AUTH.REGISTER, payload);
+      const {access, refresh, user} = res.data;
+      await setTokens(access, refresh);
+      return user as User;
+    } catch (e: any) {
+      const data = e?.response?.data;
+      const firstFieldError =
+        data && typeof data === 'object'
+          ? Object.values(data).flat().find((v) => typeof v === 'string')
+          : null;
+      return rejectWithValue(
+        data?.detail || firstFieldError || 'Couldn’t create your account.',
+      );
+    }
+  },
+);
+
 // On app launch: if we have a stored token, re-validate it by loading the
 // profile. Keeps a persisted session honest (clears it if the token is dead).
 export const restoreSession = createAsyncThunk(
@@ -85,6 +112,19 @@ const authSlice = createSlice({
       .addCase(loginUser.rejected, (s, a) => {
         s.isLoading = false;
         s.error = (a.payload as string) || a.error.message || 'Login failed';
+      })
+      .addCase(registerUser.pending, (s) => {
+        s.isLoading = true;
+        s.error = null;
+      })
+      .addCase(registerUser.fulfilled, (s, a) => {
+        s.isLoading = false;
+        s.user = a.payload;
+        s.isAuthenticated = true;
+      })
+      .addCase(registerUser.rejected, (s, a) => {
+        s.isLoading = false;
+        s.error = (a.payload as string) || a.error.message || 'Sign-up failed';
       })
       .addCase(restoreSession.fulfilled, (s, a) => {
         s.user = a.payload;

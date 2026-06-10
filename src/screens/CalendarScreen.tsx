@@ -1,11 +1,12 @@
 import React, {useState, useMemo} from 'react';
-import {View, Text, ScrollView, Pressable, Image, StyleSheet, Dimensions} from 'react-native';
+import {View, Text, ScrollView, Pressable, StyleSheet, Dimensions} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useSelector} from 'react-redux';
 import {useNavigation} from '@react-navigation/native';
 import {useTheme} from '../hooks/useTheme';
 import {RootState} from '../store/store';
 import {Pill} from '../components/Pill';
+import {CalendarDayStacks, groupSavedEventsByDay} from '../components/CalendarDayStack';
 
 const {width: W} = Dimensions.get('window');
 const CELL = (W - 40 - 6 * 4) / 7;
@@ -39,13 +40,6 @@ export const CalendarScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={[styles.container, {backgroundColor: t.bg.primary}]} edges={['top']}>
-      <View style={styles.header}>
-        <Text style={[styles.title, {color: t.text.primary}]}>Calendar</Text>
-        <Text style={[styles.subtitle, {color: t.text.secondary}]}>
-          {savedIds.length} saved {savedIds.length === 1 ? 'event' : 'events'}
-        </Text>
-      </View>
-
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Month nav */}
         <View style={styles.monthNav}>
@@ -110,27 +104,12 @@ export const CalendarScreen: React.FC = () => {
               {selectedDate ? 'Nothing saved for this day.' : 'Swipe up on events you like to save them here.'}
             </Text>
           ) : (
-            <View style={{gap: 10}}>
-              {visibleEvents.map((e) => (
-                <Pressable
-                  key={e.id}
-                  onPress={() => nav.navigate('EventDetail', {event: e})}
-                  style={[styles.savedRow, {backgroundColor: t.bg.secondary, borderColor: t.border.subtle}]}>
-                  <Image source={{uri: e.flyer_url}} style={styles.savedImg} />
-                  <View style={{flex: 1, marginLeft: 12, justifyContent: 'center'}}>
-                    <Text style={{color: t.text.tertiary, fontSize: 11, fontWeight: '700', letterSpacing: 1}}>
-                      {e.date} · {e.start_time}
-                    </Text>
-                    <Text style={{color: t.text.primary, fontSize: 15, fontWeight: '700', marginTop: 3}} numberOfLines={1}>
-                      {e.title}
-                    </Text>
-                    <Text style={{color: t.text.secondary, fontSize: 12, marginTop: 2}} numberOfLines={1}>
-                      {e.venue.display_name}
-                    </Text>
-                  </View>
-                </Pressable>
-              ))}
-            </View>
+            // Wallet-stack interaction: multi-event days collapse into a
+            // tappable stack; single days are plain cards.
+            <CalendarDayStacks
+              groups={groupSavedEventsByDay(visibleEvents)}
+              onOpenEvent={(e) => nav.navigate('EventDetail', {event: e})}
+            />
           )}
         </View>
       </ScrollView>
@@ -154,9 +133,6 @@ function sameDay(a: Date, b: Date) {
 
 const styles = StyleSheet.create({
   container: {flex: 1},
-  header: {paddingHorizontal: 20, paddingTop: 4, paddingBottom: 12},
-  title: {fontSize: 32, fontWeight: '800', letterSpacing: -0.5},
-  subtitle: {fontSize: 14, marginTop: 4},
   monthNav: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingHorizontal: 20, paddingVertical: 12,
@@ -183,10 +159,4 @@ const styles = StyleSheet.create({
     position: 'absolute', bottom: 6,
     width: 4, height: 4, borderRadius: 2,
   },
-  savedRow: {
-    flexDirection: 'row',
-    borderRadius: 16, padding: 8, paddingRight: 14,
-    borderWidth: 1,
-  },
-  savedImg: {width: 56, height: 56, borderRadius: 12},
 });

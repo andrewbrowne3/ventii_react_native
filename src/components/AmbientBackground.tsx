@@ -8,8 +8,8 @@ import {
 } from 'react-native';
 import Animated, {
   Easing,
-  interpolate,
   useAnimatedStyle,
+  useFrameCallback,
   useSharedValue,
   withDelay,
   withRepeat,
@@ -26,20 +26,16 @@ type OrbConfig = {
   core: string;
   /** Body colour — the gold that bleeds into the background. */
   color: string;
-  // Anchor as a fraction of the screen; negative / >1 sits the orb off-screen.
+  // Starting position as a fraction of the screen (orb centre).
   x: number;
   y: number;
-  // Two independent drift phases (A and B) with incommensurate periods.
-  // Their sum traces a slow Lissajous-style wander with no visible
-  // ping-pong reversal — the orb never appears to "bounce off" anything.
-  ax: number; // phase-A amplitude, x (px)
-  ay: number; // phase-A amplitude, y (px)
-  bx: number; // phase-B amplitude, x (px)
-  by: number; // phase-B amplitude, y (px)
-  scaleA: number; // scale swing on phase A (e.g. 0.06 → ±6%)
-  scaleB: number;
-  durA: number;
-  durB: number;
+  // DVD-screensaver velocity, px per second. Each orb gets its own angle and
+  // speed so they never sync up.
+  vx: number;
+  vy: number;
+  /** Slow size pulse, ±fraction (e.g. 0.06 → ±6%). */
+  scaleAmp: number;
+  pulseDur: number;
   opacity: number;
   /** How much the orb "breathes" — fraction of opacity that oscillates. */
   breathe: number;
@@ -49,76 +45,91 @@ type OrbConfig = {
 // Gold family only (accents.glow). The champagne `pulse` tone stays reserved
 // for VENTII AI surfaces, so it is intentionally absent here.
 const ORBS: OrbConfig[] = [
-  {size: 460, core: '#FFF3D0', color: '#FFD56B', x: -0.28, y: -0.12, ax: 30, ay: 16, bx: 18, by: 26, scaleA: 0.07, scaleB: 0.05, durA: 17000, durB: 23000, opacity: 0.5, breathe: 0.18, delay: 0},
-  {size: 360, core: '#FFEFC9', color: '#F4B860', x: 0.6, y: 0.0, ax: -24, ay: 30, bx: -14, by: 18, scaleA: 0.09, scaleB: 0.06, durA: 14000, durB: 19000, opacity: 0.4, breathe: 0.22, delay: 1200},
-  {size: 520, core: '#FFF6DE', color: '#FFE3A3', x: 0.42, y: 0.64, ax: 22, ay: -26, bx: 16, by: -16, scaleA: 0.05, scaleB: 0.04, durA: 21000, durB: 27000, opacity: 0.45, breathe: 0.15, delay: 600},
-  {size: 300, core: '#FFEFC4', color: '#FFCE73', x: -0.16, y: 0.55, ax: 30, ay: -18, bx: 20, by: -14, scaleA: 0.1, scaleB: 0.07, durA: 12000, durB: 16500, opacity: 0.38, breathe: 0.25, delay: 1800},
+  {size: 460, core: '#FFF3D0', color: '#FFD56B', x: 0.1, y: 0.05, vx: 14, vy: 10, scaleAmp: 0.06, pulseDur: 9000, opacity: 0.5, breathe: 0.18, delay: 0},
+  {size: 360, core: '#FFEFC9', color: '#F4B860', x: 0.75, y: 0.2, vx: -11, vy: 16, scaleAmp: 0.08, pulseDur: 7400, opacity: 0.4, breathe: 0.22, delay: 1200},
+  {size: 520, core: '#FFF6DE', color: '#FFE3A3', x: 0.5, y: 0.75, vx: 9, vy: -12, scaleAmp: 0.05, pulseDur: 11000, opacity: 0.45, breathe: 0.15, delay: 600},
+  {size: 300, core: '#FFEFC4', color: '#FFCE73', x: 0.2, y: 0.55, vx: 18, vy: -8, scaleAmp: 0.09, pulseDur: 6400, opacity: 0.38, breathe: 0.25, delay: 1800},
 ];
 
 const sine = Easing.inOut(Easing.sin);
 
+/**
+ * One drifting orb — classic DVD-screensaver motion: constant slow velocity,
+ * reflecting off the screen edges. The bounce bounds let roughly half the orb
+ * slide off-screen before reflecting, so the glow always stays partly visible
+ * and the bounce reads as the glow "kissing" the edge, not a hard hit.
+ * A slow sine pulse (scale) and opacity breathing keep it feeling alive.
+ */
 const Orb: React.FC<OrbConfig & {gid: string; dim: number}> = ({
   size,
   core,
   color,
   x,
   y,
-  ax,
-  ay,
-  bx,
-  by,
-  scaleA,
-  scaleB,
-  durA,
-  durB,
+  vx,
+  vy,
+  scaleAmp,
+  pulseDur,
   opacity,
   breathe,
   delay,
   gid,
   dim,
 }) => {
-  const pA = useSharedValue(0);
-  const pB = useSharedValue(0);
+  // Positions are the orb's top-left corner.
+  const posX = useSharedValue(SCREEN_W * x - size / 2);
+  const posY = useSharedValue(SCREEN_H * y - size / 2);
+  const velX = useSharedValue(vx);
+  const velY = useSharedValue(vy);
+  const pulse = useSharedValue(0);
 
   useEffect(() => {
-    pA.value = withDelay(
+    pulse.value = withDelay(
       delay,
-      withRepeat(withTiming(1, {duration: durA, easing: sine}), -1, true),
+      withRepeat(withTiming(1, {duration: pulseDur, easing: sine}), -1, true),
     );
-    pB.value = withDelay(
-      delay,
-      withRepeat(withTiming(1, {duration: durB, easing: sine}), -1, true),
-    );
-  }, [pA, pB, durA, durB, delay]);
+  }, [pulse, pulseDur, delay]);
 
-  const animStyle = useAnimatedStyle(() => {
-    const a = interpolate(pA.value, [0, 1], [-1, 1]);
-    const b = interpolate(pB.value, [0, 1], [-1, 1]);
-    return {
-      transform: [
-        {translateX: a * ax + b * bx},
-        {translateY: a * ay + b * by},
-        {scale: 1 + a * scaleA + b * scaleB},
-      ],
-      // Slow luminance breathing, driven by the longer phase so it stays
-      // decoupled from positional drift.
-      opacity: dim * opacity * (1 - breathe / 2 + breathe * pB.value),
-    };
+  useFrameCallback((frame) => {
+    const dt = Math.min(frame.timeSincePreviousFrame ?? 16, 64) / 1000;
+    let nx = posX.value + velX.value * dt;
+    let ny = posY.value + velY.value * dt;
+    // Allow ~55% of the orb past each edge before bouncing back.
+    const minX = -size * 0.55;
+    const maxX = SCREEN_W - size * 0.45;
+    const minY = -size * 0.55;
+    const maxY = SCREEN_H - size * 0.45;
+    if (nx < minX) {
+      nx = minX;
+      velX.value = Math.abs(velX.value);
+    } else if (nx > maxX) {
+      nx = maxX;
+      velX.value = -Math.abs(velX.value);
+    }
+    if (ny < minY) {
+      ny = minY;
+      velY.value = Math.abs(velY.value);
+    } else if (ny > maxY) {
+      ny = maxY;
+      velY.value = -Math.abs(velY.value);
+    }
+    posX.value = nx;
+    posY.value = ny;
   });
+
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [
+      {translateX: posX.value},
+      {translateY: posY.value},
+      {scale: 1 - scaleAmp + 2 * scaleAmp * pulse.value},
+    ],
+    opacity: dim * opacity * (1 - breathe / 2 + breathe * pulse.value),
+  }));
 
   return (
     <Animated.View
       pointerEvents="none"
-      style={[
-        {
-          position: 'absolute',
-          left: SCREEN_W * x,
-          top: SCREEN_H * y,
-          width: size,
-          height: size,
-        },
-        animStyle,
-      ]}>
+      style={[{position: 'absolute', left: 0, top: 0, width: size, height: size}, animStyle]}>
       <Svg width={size} height={size}>
         <Defs>
           <RadialGradient id={gid} cx="50%" cy="50%" r="50%">

@@ -22,6 +22,8 @@ import {TicketDetailScreen} from '../screens/TicketDetailScreen';
 import {SettingsScreen} from '../screens/SettingsScreen';
 import {PublicProfileScreen} from '../screens/PublicProfileScreen';
 import {OnboardingScreen} from '../screens/OnboardingScreen';
+import {SearchScreen} from '../screens/SearchScreen';
+import {FloatingTabBar} from '../components/nav/FloatingTabBar';
 import {CreateEventScreen} from '../screens/CreateEventScreen';
 import {HostScanScreen} from '../screens/HostScanScreen';
 
@@ -44,17 +46,14 @@ const MainTabs: React.FC = () => {
   const t = useTheme();
   return (
     <Tab.Navigator
+      // Floating glass bar per the navigation spec — replaces the default
+      // edge-to-edge tab bar entirely.
+      tabBar={(props) => <FloatingTabBar {...props} />}
       screenOptions={{
         headerShown: false,
         tabBarShowLabel: false,
         tabBarActiveTintColor: t.text.primary,
         tabBarInactiveTintColor: t.text.tertiary,
-        tabBarStyle: {
-          backgroundColor: t.glass.fillStrong,
-          borderTopColor: t.glass.border,
-          height: 64,
-          paddingTop: 6,
-        },
       }}>
       <Tab.Screen
         name="HomeTab" component={HomeFeedScreen}
@@ -147,6 +146,11 @@ export const AppNavigator: React.FC = () => {
               name="Settings"
               component={SettingsScreen}
               options={{presentation: 'modal'}}
+            />
+            <RootStack.Screen
+              name="Search"
+              component={SearchScreen}
+              options={{presentation: 'modal', animation: 'fade_from_bottom'}}
             />
           </>
         )}

@@ -1,8 +1,9 @@
 import React, {useState} from 'react';
-import {View, Text, Image, ScrollView, Pressable, StyleSheet} from 'react-native';
+import {View, Text, Image, ScrollView, Pressable, Share, StyleSheet} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useDispatch, useSelector} from 'react-redux';
 import {useNavigation} from '@react-navigation/native';
+import {MoreHorizontal, Settings} from 'lucide-react-native';
 import {useTheme} from '../hooks/useTheme';
 import {RootState} from '../store/store';
 import {logoutUser} from '../store/slices/authSlice';
@@ -11,6 +12,8 @@ import AmbientBackground from '../components/AmbientBackground';
 import GlassView from '../components/GlassView';
 import ProfileHero from '../components/profile/ProfileHero';
 import ProfileTabStrip from '../components/profile/ProfileTabStrip';
+import {GhostIconButton, ScreenHeader} from '../components/nav/ScreenHeader';
+import {FLOATING_BAR_CLEARANCE} from '../components/nav/FloatingTabBar';
 
 type Tab = 'Saved' | 'Going' | 'Communities' | 'About';
 
@@ -32,17 +35,31 @@ export const ProfileScreen: React.FC = () => {
     <AmbientBackground>
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Header strip */}
-        <View style={styles.topRow}>
-          <Text style={[styles.handle, {color: t.text.tertiary}]}>
-            @{user?.username || 'you'}
-          </Text>
-          <Pressable
-            onPress={() => nav.navigate('Settings')}
-            style={[styles.iconBtn, {backgroundColor: t.bg.secondary, borderColor: t.border.subtle}]}>
-            <Text style={{color: t.text.primary, fontSize: 16, fontWeight: '700'}}>⚙</Text>
-          </Pressable>
-        </View>
+        {/* Nav spec Part C — Profile: ⚙ settings · name/handle · ⋯ menu.
+            (No search on the profile, per the right-slot rule.) */}
+        <ScreenHeader
+          left={
+            <GhostIconButton label="Settings" onPress={() => nav.navigate('Settings')}>
+              <Settings size={19} color={t.text.primary} />
+            </GhostIconButton>
+          }
+          center={
+            <Text
+              style={{color: t.text.tertiary, fontSize: 13, fontWeight: '600', textAlign: 'center'}}
+              numberOfLines={1}>
+              @{user?.username || 'you'}
+            </Text>
+          }
+          right={
+            <GhostIconButton
+              label="Menu"
+              onPress={() =>
+                Share.share({message: `Find me on VENTII — @${user?.username || 'ventii'}`}).catch(() => {})
+              }>
+              <MoreHorizontal size={19} color={t.text.primary} />
+            </GhostIconButton>
+          }
+        />
 
         {/* Hero — the canonical shared block (public profiles use it too) */}
         <ProfileHero
@@ -72,7 +89,7 @@ export const ProfileScreen: React.FC = () => {
         />
 
         {/* Tab content */}
-        <View style={{padding: 20, paddingBottom: 40}}>
+        <View style={{padding: 20, paddingBottom: FLOATING_BAR_CLEARANCE}}>
           {tab === 'Saved' && (saved.length === 0 ? (
             <Text style={{color: t.text.secondary, textAlign: 'center', paddingVertical: 30}}>
               Nothing saved yet. Swipe up on events you like.

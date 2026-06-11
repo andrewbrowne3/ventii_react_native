@@ -33,7 +33,7 @@ import Animated, {
   interpolate,
   Extrapolation,
 } from 'react-native-reanimated';
-import {Heart, Send, BarChart2, Calendar, Star, Ticket, ChevronRight, MoreHorizontal} from 'lucide-react-native';
+import {Heart, Send, BarChart2, Calendar, Star, Ticket, ChevronRight, MoreHorizontal, Search} from 'lucide-react-native';
 
 import {useTheme} from '../hooks/useTheme';
 import {RootState, AppDispatch} from '../store/store';
@@ -42,6 +42,8 @@ import {Event} from '../types';
 import {HostStack} from '../components/HostStack';
 import AmbientBackground from '../components/AmbientBackground';
 import GlassView from '../components/GlassView';
+import {CityPill, GhostIconButton, ScreenHeader} from '../components/nav/ScreenHeader';
+import {FLOATING_BAR_CLEARANCE} from '../components/nav/FloatingTabBar';
 
 const {width: W} = Dimensions.get('window');
 const CARD_W = W - 32;
@@ -418,7 +420,9 @@ export const HomeFeedScreen: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const nav = useNavigation<any>();
   const events = useSelector((s: RootState) => s.feed.events);
+  const prefs = useSelector((s: RootState) => s.social.prefs);
   const [tab, setTab] = useState<Tab>('For You');
+  const [cityId, setCityId] = useState(prefs?.city ?? 'atl');
 
   useEffect(() => {
     dispatch(fetchEvents());
@@ -449,6 +453,16 @@ export const HomeFeedScreen: React.FC = () => {
       <SafeAreaView style={styles.container} edges={['top']}>
       <StatusBar barStyle={t.mode === 'dark' ? 'light-content' : 'dark-content'} />
 
+      {/* Nav spec Part C — Home: city pill (left, flexes) + 🔍 search */}
+      <ScreenHeader
+        center={<CityPill cityId={cityId} onSelectCity={setCityId} />}
+        right={
+          <GhostIconButton label="Search" onPress={() => nav.navigate('Search')}>
+            <Search size={18} color={t.text.primary} />
+          </GhostIconButton>
+        }
+      />
+
       <FeedTopNav tab={tab} setTab={setTab} t={t} />
 
       {tab === 'Following' ? (
@@ -463,7 +477,7 @@ export const HomeFeedScreen: React.FC = () => {
           data={groups}
           keyExtractor={(g) => g.key}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{paddingTop: 6, paddingBottom: 28}}
+          contentContainerStyle={{paddingTop: 6, paddingBottom: FLOATING_BAR_CLEARANCE}}
           initialNumToRender={2}
           maxToRenderPerBatch={3}
           windowSize={5}

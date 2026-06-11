@@ -3,8 +3,12 @@ import {
   View, Text, ScrollView, TextInput, Pressable, StyleSheet, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
+import {useNavigation} from '@react-navigation/native';
+import {Plus, Search} from 'lucide-react-native';
 import {useTheme} from '../hooks/useTheme';
 import {Pill} from '../components/Pill';
+import {GhostIconButton, ScreenHeader} from '../components/nav/ScreenHeader';
+import {FLOATING_BAR_CLEARANCE} from '../components/nav/FloatingTabBar';
 
 interface Msg {id: string; role: 'user' | 'assistant'; text: string}
 
@@ -24,8 +28,14 @@ const SEED_MESSAGES: Msg[] = [
 
 export const AIConciergeScreen: React.FC = () => {
   const t = useTheme();
+  const nav = useNavigation<any>();
   const [messages, setMessages] = useState<Msg[]>(SEED_MESSAGES);
   const [input, setInput] = useState('');
+
+  const resetChat = () => {
+    setMessages(SEED_MESSAGES);
+    setInput('');
+  };
 
   const send = (text: string) => {
     if (!text.trim()) return;
@@ -43,15 +53,24 @@ export const AIConciergeScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={[styles.container, {backgroundColor: t.bg.primary}]} edges={['top']}>
-      <View style={styles.header}>
-        <View style={[styles.aiDot, {backgroundColor: pulse.bg, borderColor: pulse.base}]}>
-          <Text style={{color: pulse.base, fontSize: 14, fontWeight: '800'}}>✦</Text>
-        </View>
-        <View style={{flex: 1}}>
-          <Text style={[styles.title, {color: t.text.primary}]}>VENTII AI</Text>
-          <Text style={[styles.sub, {color: pulse.base}]}>Your concierge</Text>
-        </View>
-      </View>
+      {/* Nav spec Part C — AI: ＋ new chat · brand pill · 🔍 search */}
+      <ScreenHeader
+        left={
+          <GhostIconButton label="New chat" onPress={resetChat}>
+            <Plus size={19} color={t.text.primary} />
+          </GhostIconButton>
+        }
+        center={
+          <View style={[styles.brandPill, {backgroundColor: pulse.bg, borderColor: pulse.base}]}>
+            <Text style={{color: pulse.base, fontSize: 13, fontWeight: '800'}}>✦ VENTII AI</Text>
+          </View>
+        }
+        right={
+          <GhostIconButton label="Search" onPress={() => nav.navigate('Search')}>
+            <Search size={18} color={t.text.primary} />
+          </GhostIconButton>
+        }
+      />
 
       <ScrollView
         style={{flex: 1}}
@@ -106,7 +125,12 @@ export const AIConciergeScreen: React.FC = () => {
       </ScrollView>
 
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <View style={[styles.inputBar, {backgroundColor: t.bg.elevated, borderTopColor: t.border.subtle}]}>
+        <View
+          style={[
+            styles.inputBar,
+            // Sit the composer above the floating tab bar.
+            {backgroundColor: t.bg.elevated, borderTopColor: t.border.subtle, marginBottom: FLOATING_BAR_CLEARANCE - 24},
+          ]}>
           <TextInput
             value={input}
             onChangeText={setInput}
@@ -133,20 +157,13 @@ export const AIConciergeScreen: React.FC = () => {
 
 const styles = StyleSheet.create({
   container: {flex: 1},
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: 20,
-    paddingTop: 6, paddingBottom: 12,
+  brandPill: {
+    alignSelf: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 100,
+    borderWidth: 1,
   },
-  aiDot: {
-    width: 40, height: 40, borderRadius: 20,
-    borderWidth: 1.2,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  title: {fontSize: 22, fontWeight: '800', letterSpacing: -0.3},
-  sub: {fontSize: 12, fontWeight: '700', letterSpacing: 1, marginTop: 1},
   inputBar: {
     flexDirection: 'row',
     alignItems: 'center',

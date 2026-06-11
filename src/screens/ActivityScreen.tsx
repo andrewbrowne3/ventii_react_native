@@ -1,11 +1,14 @@
 import React, {useState} from 'react';
-import {View, Text, ScrollView, StyleSheet, Pressable, Image} from 'react-native';
+import {View, Text, ScrollView, StyleSheet, Pressable, Image, Alert} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useNavigation} from '@react-navigation/native';
 import {useSelector} from 'react-redux';
+import {Plus, Search} from 'lucide-react-native';
 import {useTheme} from '../hooks/useTheme';
 import {Pill} from '../components/Pill';
 import {RootState} from '../store/store';
+import {GhostIconButton, ScreenHeader} from '../components/nav/ScreenHeader';
+import {FLOATING_BAR_CLEARANCE} from '../components/nav/FloatingTabBar';
 
 type Tab = 'Notifications' | 'RSVPs' | 'Plans';
 
@@ -32,22 +35,25 @@ export const ActivityScreen: React.FC = () => {
   const nav = useNavigation<any>();
   const [tab, setTab] = useState<Tab>('Notifications');
   const tabs: Tab[] = ['Notifications', 'RSVPs', 'Plans'];
-  const ticketCount = useSelector((s: RootState) => s.wallet.tickets.length);
 
   return (
     <SafeAreaView style={[styles.container, {backgroundColor: t.bg.primary}]} edges={['top']}>
-      <View style={[styles.header, {justifyContent: 'flex-end'}]}>
-        <Pressable
-          onPress={() => nav.navigate('Wallet')}
-          style={[styles.walletBtn, {backgroundColor: t.bg.secondary, borderColor: t.border.subtle}]}>
-          <Text style={{fontSize: 16}}>🎟</Text>
-          {ticketCount > 0 && (
-            <View style={[styles.walletBadge, {backgroundColor: t.accents.aurora.base}]}>
-              <Text style={{color: t.text.inverse, fontSize: 10, fontWeight: '800'}}>{ticketCount}</Text>
-            </View>
-          )}
-        </Pressable>
-      </View>
+      {/* Nav spec Part C — Activity: ＋ new message · tabs below · 🔍 search.
+          (Wallet moved to the Calendar header's left slot per the spec.) */}
+      <ScreenHeader
+        left={
+          <GhostIconButton
+            label="New message"
+            onPress={() => Alert.alert('Messages', 'Direct messages are coming soon.')}>
+            <Plus size={19} color={t.text.primary} />
+          </GhostIconButton>
+        }
+        right={
+          <GhostIconButton label="Search" onPress={() => nav.navigate('Search', {scope: 'activity'})}>
+            <Search size={18} color={t.text.primary} />
+          </GhostIconButton>
+        }
+      />
 
       {/* Tabs */}
       <View style={[styles.tabStrip, {borderBottomColor: t.border.subtle}]}>
@@ -66,7 +72,7 @@ export const ActivityScreen: React.FC = () => {
         })}
       </View>
 
-      <ScrollView contentContainerStyle={{padding: 20, gap: 10}}>
+      <ScrollView contentContainerStyle={{padding: 20, gap: 10, paddingBottom: FLOATING_BAR_CLEARANCE}}>
         {tab === 'Notifications' && MOCK_NOTIFS.map((n) => (
           <View key={n.id} style={[styles.notifRow, {backgroundColor: t.bg.secondary, borderColor: t.border.subtle}]}>
             <Text style={{fontSize: 22}}>{n.icon}</Text>

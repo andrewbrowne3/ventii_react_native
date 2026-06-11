@@ -7,6 +7,9 @@ import {useTheme} from '../hooks/useTheme';
 import {RootState} from '../store/store';
 import {Pill} from '../components/Pill';
 import {CalendarDayStacks, groupSavedEventsByDay} from '../components/CalendarDayStack';
+import {GhostIconButton, ScreenHeader} from '../components/nav/ScreenHeader';
+import {FLOATING_BAR_CLEARANCE} from '../components/nav/FloatingTabBar';
+import {Search, Ticket} from 'lucide-react-native';
 
 const {width: W} = Dimensions.get('window');
 const CELL = (W - 40 - 6 * 4) / 7;
@@ -40,7 +43,27 @@ export const CalendarScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={[styles.container, {backgroundColor: t.bg.primary}]} edges={['top']}>
-      <ScrollView showsVerticalScrollIndicator={false}>
+      {/* Nav spec Part C — Calendar: 🎟 wallet · title · 🔍 search */}
+      <ScreenHeader
+        left={
+          <GhostIconButton label="Wallet" onPress={() => nav.navigate('Wallet')}>
+            <Ticket size={19} color={t.text.primary} />
+          </GhostIconButton>
+        }
+        center={
+          <Text style={{color: t.text.primary, fontWeight: '700', fontSize: 17, textAlign: 'center'}}>
+            Calendar
+          </Text>
+        }
+        right={
+          <GhostIconButton label="Search" onPress={() => nav.navigate('Search', {scope: 'saved events'})}>
+            <Search size={18} color={t.text.primary} />
+          </GhostIconButton>
+        }
+      />
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{paddingBottom: FLOATING_BAR_CLEARANCE}}>
         {/* Month nav */}
         <View style={styles.monthNav}>
           <Pressable

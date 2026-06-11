@@ -7,6 +7,7 @@ import {
   Modal,
   Pressable,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   TextInput,
@@ -138,7 +139,14 @@ export const PublicProfileScreen: React.FC = () => {
               <Text style={{color: t.text.primary, fontSize: 20, fontWeight: '700'}}>‹</Text>
             </Pressable>
             <Text style={[styles.handle, {color: t.text.tertiary}]}>@{profile.handle}</Text>
-            <View style={{width: 38}} />
+            {/* ⋯ menu (share) — nav spec: back · name/handle · kebab */}
+            <Pressable
+              onPress={() =>
+                Share.share({message: `${profile.display_name} on VENTII — @${profile.handle}`}).catch(() => {})
+              }
+              style={[styles.iconBtn, {backgroundColor: t.bg.secondary, borderColor: t.border.subtle}]}>
+              <Text style={{color: t.text.primary, fontSize: 16, fontWeight: '700'}}>⋯</Text>
+            </Pressable>
           </View>
 
           <ProfileHero

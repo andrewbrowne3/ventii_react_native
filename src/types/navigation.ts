@@ -15,6 +15,7 @@ export type RootStackParamList = {
   HostScan: undefined;
   Settings: undefined;
   CreateEvent: undefined;
+  Search: {scope?: string} | undefined;
 };
 
 export type BottomTabParamList = {

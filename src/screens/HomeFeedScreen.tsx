@@ -369,7 +369,13 @@ EventCard.displayName = 'EventCard';
 // ───── top nav ───────────────────────────────────────────────────────────────
 
 const FeedTopNav: React.FC<{tab: Tab; setTab: (t: Tab) => void; t: any}> = ({tab, setTab, t}) => (
-  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.topNav}>
+  <ScrollView
+    horizontal
+    showsHorizontalScrollIndicator={false}
+    // Must NOT flex-shrink: with the ScreenHeader sibling above, the column
+    // layout compresses this row and clips the pill text bottoms.
+    style={styles.topNavScroll}
+    contentContainerStyle={styles.topNav}>
     {TABS.map((label) => {
       const active = tab === label;
       // "Deals" always wears the deal green and glows — same accent as the
@@ -505,6 +511,7 @@ export const HomeFeedScreen: React.FC = () => {
 
 const styles = StyleSheet.create({
   container: {flex: 1},
+  topNavScroll: {flexGrow: 0, flexShrink: 0},
   topNav: {paddingHorizontal: 16, paddingTop: 6, paddingBottom: 12, gap: 8, alignItems: 'center'},
   navPill: {paddingVertical: 7, paddingHorizontal: 16, borderRadius: 100, borderWidth: 1, justifyContent: 'center'},
 

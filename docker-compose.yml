@@ -5,7 +5,7 @@ services:
     build: ./backend
     container_name: ventii-backend
     ports:
-      - "8000:8000"
+      - "8020:8000"   # host 8020 → container 8000; nginx (ventii.andrewbrowne.org) proxies to 127.0.0.1:8020
     volumes:
       - ./backend:/app          # live code reload in dev
       - backend-data:/app/data  # persists the SQLite db across rebuilds
